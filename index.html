@@ -5,105 +5,81 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>モニュメンタリティ可視化</title>
 <style>
-  :root{
-    --bg:#f4f1ea; --ink:#2b2b2b; --line:#3a3a3a; --accent:#8a6d3b;
-    --circle:rgba(138,109,59,.10); --circleline:#8a6d3b;
-  }
+  :root{ --ink:#1a1a1a; --line:#1a1a1a; --mut:#9a9a9a; --bg:#ffffff; }
   *{box-sizing:border-box;}
   body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
-       background:var(--bg);color:var(--ink);line-height:1.6;}
-  header{padding:24px 20px 8px;text-align:center;}
-  header h1{font-size:1.4rem;margin:0 0 4px;letter-spacing:.04em;}
-  header p{margin:0;font-size:.82rem;color:#6b6b6b;}
+       background:var(--bg);color:var(--ink);line-height:1.5;}
+  header{padding:22px 20px 6px;text-align:center;}
+  header h1{font-size:1.25rem;margin:0 0 4px;font-weight:600;letter-spacing:.04em;}
+  header p{margin:0;font-size:.78rem;color:#777;}
 
-  .layout{display:flex;flex-wrap:wrap;gap:16px;padding:16px 20px 60px;max-width:1200px;margin:0 auto;}
+  .legend{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin:8px 0 4px;font-size:.74rem;color:#555;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .lc{width:22px;height:22px;border-radius:50%;}
+  .lc.solid{border:1.5px solid #1a1a1a;}
+  .lc.dash{border:1.5px dashed #1a1a1a;}
+  .lq{font-size:1.2rem;color:rgba(0,0,0,.25);font-weight:700;}
 
-  /* sidebar */
-  .panel{flex:0 0 280px;background:#fff;border:1px solid #e0daccc;border-radius:10px;
-         padding:14px;max-height:80vh;overflow:auto;box-shadow:0 1px 4px rgba(0,0,0,.05);}
-  .panel h2{font-size:.9rem;margin:0 0 10px;color:var(--accent);}
-  .cat{margin-bottom:12px;}
-  .cat-name{font-size:.74rem;color:#8a8a8a;font-weight:700;margin:0 0 4px;
-            border-bottom:1px dotted #ccc;padding-bottom:2px;}
-  .el-btn{display:block;width:100%;text-align:left;border:1px solid #ddd;background:#fafafa;
-          border-radius:6px;padding:6px 9px;margin:3px 0;font-size:.8rem;cursor:pointer;
-          transition:.15s;color:var(--ink);}
-  .el-btn:hover{background:#f0ead9;border-color:var(--accent);}
-  .el-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;}
+  .layout{display:flex;flex-wrap:wrap;gap:18px;padding:14px 20px 60px;max-width:1180px;margin:0 auto;justify-content:center;}
+  .panel{flex:0 0 220px;align-self:flex-start;}
+  .panel h2{font-size:.82rem;margin:0 0 8px;color:#666;font-weight:600;}
+  .cat-btn{display:block;width:100%;text-align:left;border:1px solid #ddd;background:#fff;
+           border-radius:7px;padding:9px 12px;margin:4px 0;font-size:.84rem;cursor:pointer;
+           transition:.12s;color:var(--ink);}
+  .cat-btn:hover{border-color:#1a1a1a;}
+  .cat-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a;font-weight:600;}
+  .cat-btn small{display:block;color:inherit;opacity:.6;font-size:.68rem;margin-top:1px;}
 
-  /* stage */
-  .stage{flex:1 1 480px;min-width:320px;}
-  .stage-head{text-align:center;margin-bottom:10px;min-height:42px;}
-  .stage-head .label{font-size:1.05rem;font-weight:700;}
-  .stage-head .cat{font-size:.78rem;color:#8a8a8a;}
+  .stage-wrap{flex:1 1 auto;}
+  .stage-head{text-align:center;margin-bottom:6px;font-size:1.05rem;font-weight:600;min-height:24px;}
 
-  .venn{position:relative;border:2px dashed #c9c0a8;border-radius:14px;
-        background:#fbfaf6;padding:18px;min-height:420px;}
-  /* the big circle = 該当 */
-  .circle-zone{border:3px solid var(--circleline);border-radius:50%;
-        background:var(--circle);padding:30px 18px 18px;margin-top:20px;
-        display:flex;flex-wrap:wrap;gap:14px;justify-content:center;align-items:center;
-        min-height:330px;}
-  .zone-tag{position:absolute;font-size:.72rem;font-weight:700;letter-spacing:.1em;z-index:2;}
-  .tag-in{top:6px;left:50%;transform:translateX(-50%);color:var(--accent);
-          background:#fbfaf6;padding:0 8px;}
-  .tag-out{top:6px;right:18px;color:#b0a890;}
+  /* the enclosing frame = 外枠 */
+  .frame{position:relative;width:760px;max-width:100%;height:730px;border:1.5px solid #1a1a1a;
+         border-radius:22px;margin:0 auto;overflow:hidden;background:#fff;}
+  .frame svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .circle-label{font-size:12px;fill:#1a1a1a;font-weight:600;}
+  .divider-label{font-size:11px;fill:#b0b0b0;}
 
-  .outside{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:18px;
-           padding-top:14px;border-top:1px dotted #d8d0bb;}
-
-  /* card */
-  .card{width:104px;text-align:center;}
-  .thumb{width:96px;height:96px;border-radius:10px;overflow:hidden;position:relative;
-         margin:0 auto;background:#e8e3d5;display:flex;align-items:center;justify-content:center;}
+  .card{position:absolute;width:58px;transform:translate(-50%,-50%);text-align:center;
+        cursor:default;transition:transform .08s;}
+  .card:hover{transform:translate(-50%,-50%) scale(1.12);z-index:50;}
+  .thumb{width:54px;height:54px;border-radius:50%;overflow:hidden;position:relative;margin:0 auto;
+         border:1px solid #1a1a1a;background:#eee;display:flex;align-items:center;justify-content:center;}
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-  .thumb .noimg{font-size:.62rem;color:#9a9a9a;padding:4px;}
-  .card .nm{font-size:.72rem;margin-top:4px;word-break:break-word;}
-  /* ◎ = solid border, ○ = dashed border */
-  .card.yes  .thumb{border:3px solid #2e7d32;}
-  .card.maybe .thumb{border:3px dashed #f9a825;}
-  .qmark{position:absolute;top:2px;right:3px;background:rgba(0,0,0,.62);color:#fff;
-         font-size:.72rem;font-weight:700;width:17px;height:17px;border-radius:50%;
-         display:flex;align-items:center;justify-content:center;}
-  .card.dim{opacity:.5;}
+  .thumb .noimg{font-size:.5rem;color:#888;padding:2px;line-height:1.1;}
+  .qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         font-size:2.4rem;font-weight:800;color:rgba(0,0,0,.28);pointer-events:none;}
+  .nm{font-size:.58rem;margin-top:2px;color:#222;width:76px;margin-left:-9px;line-height:1.12;
+      text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff;}
+  .circle-label{paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;}
 
-  .legend{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:6px 0 14px;font-size:.74rem;color:#555;}
-  .legend span{display:inline-flex;align-items:center;gap:6px;}
-  .sw{width:20px;height:20px;border-radius:5px;background:#e8e3d5;}
-  .sw.yes{border:3px solid #2e7d32;}
-  .sw.maybe{border:3px dashed #f9a825;}
-
-  .share{text-align:center;margin-top:8px;}
-  .share button{border:1px solid var(--accent);background:#fff;color:var(--accent);
-        border-radius:6px;padding:7px 16px;font-size:.82rem;cursor:pointer;}
-  .share button:hover{background:var(--accent);color:#fff;}
-  .toast{font-size:.76rem;color:#2e7d32;margin-left:10px;opacity:0;transition:.3s;}
+  .hint{text-align:center;font-size:.72rem;color:#999;margin-top:8px;}
+  .share{text-align:center;margin-top:12px;}
+  .share button{border:1px solid #1a1a1a;background:#fff;color:#1a1a1a;border-radius:7px;
+        padding:7px 16px;font-size:.82rem;cursor:pointer;}
+  .share button:hover{background:#1a1a1a;color:#fff;}
+  .toast{font-size:.76rem;color:#1a7d32;margin-left:10px;opacity:0;transition:.3s;}
   .toast.show{opacity:1;}
-  .empty{text-align:center;color:#b0a890;font-size:.85rem;padding:40px;}
 </style>
 </head>
 <body>
 <header>
   <h1>モニュメンタリティ可視化</h1>
-  <p>左の要素を1つ選ぶと、各事例が「該当（円の内側）／非該当（外側）」に分かれます</p>
+  <p>カテゴリーを選ぶと、その観点の項目が円になって重なります</p>
 </header>
 
 <div class="legend">
-  <span><i class="sw yes"></i>◎ 確実に該当（実線）</span>
-  <span><i class="sw maybe"></i>○ おそらく該当（点線）</span>
-  <span>? 印 = 不確か</span>
+  <span><i class="lc solid"></i>実線の円 = 該当（◎）</span>
+  <span><i class="lc dash"></i>内側の点線円 = おそらく該当（○）</span>
+  <span><i class="lq">?</i> 不確か</span>
 </div>
 
 <div class="layout">
-  <aside class="panel" id="panel"><h2>要素を選ぶ</h2></aside>
-
-  <main class="stage">
+  <aside class="panel"><h2>観点（カテゴリー）</h2><div id="cats"></div></aside>
+  <main class="stage-wrap">
     <div class="stage-head" id="head"></div>
-    <div class="venn">
-      <span class="zone-tag tag-out">外側 = 非該当</span>
-      <div class="circle-zone" id="inside"></div>
-      <div class="outside" id="outside"></div>
-    </div>
+    <div class="frame" id="frame"><svg id="svg" viewBox="0 0 760 730" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="hint">円の外＝その観点に該当しない事例 ／ カードにカーソルを乗せると拡大</div>
     <div class="share">
       <button id="shareBtn">🔗 この表示のリンクをコピー</button>
       <span class="toast" id="toast">コピーしました</span>
@@ -113,54 +89,176 @@
 
 <script src="data.js"></script>
 <script>
-const panel=document.getElementById('panel');
+const W=760, H=730;                 // frame coordinate space
+const CX=380, CYC=300;              // circle-area center
+const OUT_Y=658;                    // outside strip baseline
+const frame=document.getElementById('frame');
+const svg=document.getElementById('svg');
 const head=document.getElementById('head');
-const inside=document.getElementById('inside');
-const outside=document.getElementById('outside');
-let current=null;
 
-// build sidebar grouped by category
-const groups={};
-ELEMENTS.forEach(e=>{(groups[e.category]=groups[e.category]||[]).push(e);});
-Object.keys(groups).forEach(cat=>{
-  const g=document.createElement('div');g.className='cat';
-  const h=document.createElement('div');h.className='cat-name';h.textContent=cat;g.appendChild(h);
-  groups[cat].forEach(e=>{
-    const b=document.createElement('button');b.className='el-btn';b.textContent=e.label;
-    b.dataset.id=e.id;b.onclick=()=>select(e.id);g.appendChild(b);
-  });
-  panel.appendChild(g);
+// ---- group elements into ordered categories ----
+const cats=[]; const seen={};
+ELEMENTS.forEach(e=>{
+  if(!seen[e.category]){seen[e.category]={category:e.category,items:[]};cats.push(seen[e.category]);}
+  seen[e.category].items.push(e);
 });
 
-function cardHtml(c,val){
-  const cls='card '+(val||'');
-  let inner;
-  if(c.img){inner=`<img src="${c.img}" alt="${c.name}" loading="lazy">`;}
-  else{inner=`<span class="noimg">${c.name}<br>(画像なし)</span>`;}
-  const q=(val==='yes_q'||val==='maybe_q')?'<span class="qmark">?</span>':'';
-  // normalize border class: yes_q->yes, maybe_q->maybe
-  const border=val.startsWith('yes')?'yes':val.startsWith('maybe')?'maybe':'';
-  const el=document.createElement('div');
-  el.className='card '+border;
-  el.innerHTML=`<div class="thumb">${inner}${q}</div><div class="nm">${c.name}</div>`;
-  return el;
+// ---- sidebar ----
+const catBox=document.getElementById('cats');
+cats.forEach((c,idx)=>{
+  const b=document.createElement('button');b.className='cat-btn';
+  b.innerHTML=`${c.category}<small>${c.items.length}項目</small>`;
+  b.dataset.idx=idx;b.onclick=()=>select(idx);catBox.appendChild(b);
+});
+
+// geometry presets by circle count
+function preset(n){
+  return ({
+    1:{R:225,spread:0},
+    2:{R:185,spread:98},
+    3:{R:165,spread:122},
+    4:{R:150,spread:140},
+    5:{R:140,spread:158},
+  })[n] || {R:130,spread:170};
+}
+function centers(n,spread){
+  if(n===1) return [{x:CX,y:CYC}];
+  if(n===2) return [{x:CX-spread,y:CYC},{x:CX+spread,y:CYC}];
+  const arr=[];
+  for(let i=0;i<n;i++){
+    const a=(-90 + i*360/n)*Math.PI/180;
+    arr.push({x:CX+spread*Math.cos(a),y:CYC+spread*Math.sin(a)});
+  }
+  return arr;
 }
 
-function select(id){
-  current=id;
-  document.querySelectorAll('.el-btn').forEach(b=>b.classList.toggle('active',b.dataset.id===id));
-  const e=ELEMENTS.find(x=>x.id===id);
-  head.innerHTML=`<div class="label">${e.label}</div><div class="cat">${e.category}</div>`;
-  inside.innerHTML='';outside.innerHTML='';
-  let nIn=0;
-  CASES.forEach(c=>{
-    const val=c.scores[id]||'';
-    if(val){inside.appendChild(cardHtml(c,val));nIn++;}
-    else{const card=cardHtml(c,'');card.classList.add('dim');outside.appendChild(card);}
+function norm(v){ // collapse to membership info
+  if(!v) return null;
+  const conf = v.startsWith('maybe') ? 'maybe' : 'yes';
+  const q = v.endsWith('_q');
+  return {conf,q};
+}
+
+let current=0;
+function select(idx){
+  current=idx;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.toggle('active',+b.dataset.idx===idx));
+  const cat=cats[idx];
+  const items=cat.items;
+  const n=items.length;
+  const {R,spread}=preset(n);
+  const C=centers(n,spread);
+  head.textContent=cat.category;
+
+  // clear
+  svg.innerHTML='';
+  [...frame.querySelectorAll('.card')].forEach(e=>e.remove());
+
+  const NS='http://www.w3.org/2000/svg';
+  // draw solid + dashed circles
+  C.forEach((c,i)=>{
+    const c1=document.createElementNS(NS,'circle');
+    c1.setAttribute('cx',c.x);c1.setAttribute('cy',c.y);c1.setAttribute('r',R);
+    c1.setAttribute('fill','none');c1.setAttribute('stroke','#1a1a1a');c1.setAttribute('stroke-width','1.5');
+    svg.appendChild(c1);
+    const c2=document.createElementNS(NS,'circle');
+    c2.setAttribute('cx',c.x);c2.setAttribute('cy',c.y);c2.setAttribute('r',R*0.58);
+    c2.setAttribute('fill','none');c2.setAttribute('stroke','#1a1a1a');c2.setAttribute('stroke-width','1.2');
+    c2.setAttribute('stroke-dasharray','5 5');c2.setAttribute('opacity','0.75');
+    svg.appendChild(c2);
+    // label at outward perimeter
+    const ang = n===1 ? -Math.PI/2 : Math.atan2(c.y-CYC,c.x-CX);
+    let lx=c.x+Math.cos(ang)*(R+2), ly=c.y+Math.sin(ang)*(R+2);
+    ly = ly<CYC ? ly-6 : ly+14;
+    ly = Math.max(15, Math.min(H-8, ly));     // keep inside frame
+    lx = Math.max(86, Math.min(W-86, lx));
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('class','circle-label');
+    t.setAttribute('x',lx);t.setAttribute('y',ly);
+    t.setAttribute('text-anchor','middle');
+    t.textContent=items[i].label;
+    svg.appendChild(t);
   });
-  if(nIn===0){inside.innerHTML='<div class="empty">この要素に該当する事例はありません<br>（元データが空欄）</div>';}
-  // update URL
-  const u=new URL(location);u.searchParams.set('el',id);history.replaceState(null,'',u);
+
+  // ---- assign each case to a region group ----
+  const groups={}; const outside=[];
+  CASES.forEach(cs=>{
+    const mem=[]; let anyMaybe=false, anyQ=false;
+    items.forEach((it,i)=>{
+      const info=norm(cs.scores[it.id]);
+      if(info){mem.push(i); if(info.conf==='maybe')anyMaybe=true; if(info.q)anyQ=true;}
+    });
+    if(mem.length===0){outside.push({cs,q:false});return;}
+    const ring = anyMaybe ? 'in' : 'ring';   // ○ -> inner dashed, ◎ -> ring
+    const key=mem.join('-')+'|'+ring;
+    (groups[key]=groups[key]||{mem,ring,list:[]}).list.push({cs,q:anyQ});
+  });
+
+  // ---- base point per group ----
+  function basePoint(g){
+    const {mem,ring}=g;
+    if(mem.length===1){
+      const i=mem[0], c=C[i];
+      if(n===1){
+        const ry = ring==='in' ? R*0.28 : R*0.55;
+        return {x:c.x, y:c.y - ry};
+      }
+      const ang=Math.atan2(c.y-CYC,c.x-CX);
+      const rad = ring==='in' ? R*0.28 : R*0.52;
+      return {x:c.x+Math.cos(ang)*rad, y:c.y+Math.sin(ang)*rad, single:false};
+    }
+    // intersection: centroid of member centers
+    let mx=0,my=0; mem.forEach(i=>{mx+=C[i].x;my+=C[i].y;});
+    mx/=mem.length; my/=mem.length;
+    if(ring==='in'){ mx+=(CX-mx)*0.15; my+=(CYC-my)*0.15; }
+    return {x:mx,y:my,single:false};
+  }
+
+  // ---- layout cards in a cluster around base ----
+  function placeCards(list, base){
+    const m=list.length;
+    const cols=Math.ceil(Math.sqrt(m));
+    const sp=60;
+    const rows=Math.ceil(m/cols);
+    list.forEach((item,k)=>{
+      const r=Math.floor(k/cols), col=k%cols;
+      const colsInRow = (r===rows-1) ? (m-cols*(rows-1)) : cols;
+      const x=base.x + (col-(colsInRow-1)/2)*sp;
+      const y=base.y + (r-(rows-1)/2)*sp;
+      addCard(item.cs,item.q,x,y);
+    });
+  }
+
+  function addCard(cs,q,x,y){
+    const d=document.createElement('div');d.className='card';
+    d.style.left=(x/W*100)+'%';d.style.top=(y/H*100)+'%';
+    const inner = cs.img ? `<img src="${cs.img}" alt="${cs.name}" loading="lazy">`
+                         : `<span class="noimg">${cs.name}</span>`;
+    d.innerHTML=`<div class="thumb">${inner}${q?'<span class="qmark">?</span>':''}</div><div class="nm">${cs.name}</div>`;
+    frame.appendChild(d);
+  }
+
+  Object.values(groups).forEach(g=>placeCards(g.list, basePoint(g)));
+
+  // ---- outside cases: row(s) along the bottom inside the frame ----
+  if(outside.length){
+    const NS2='http://www.w3.org/2000/svg';
+    const dl=document.createElementNS(NS2,'text');
+    dl.setAttribute('class','divider-label');dl.setAttribute('x',CX);dl.setAttribute('y',OUT_Y-44);
+    dl.setAttribute('text-anchor','middle');dl.textContent='— どの円にも入らない —';
+    svg.appendChild(dl);
+    const sp=66; const per=Math.min(outside.length, Math.floor((W-60)/sp));
+    outside.forEach((item,k)=>{
+      const row=Math.floor(k/per);
+      const inRow = Math.min(per, outside.length-row*per);
+      const col=k%per;
+      const x=CX + (col-(inRow-1)/2)*sp;
+      const y=OUT_Y + row*64;
+      addCard(item.cs,item.q,x,y);
+    });
+  }
+
+  const u=new URL(location);u.searchParams.set('cat',idx);history.replaceState(null,'',u);
 }
 
 document.getElementById('shareBtn').onclick=()=>{
@@ -170,9 +268,8 @@ document.getElementById('shareBtn').onclick=()=>{
   });
 };
 
-// init from URL or first element
-const start=new URL(location).searchParams.get('el');
-select(start && ELEMENTS.some(e=>e.id===start) ? start : ELEMENTS[0].id);
+const start=new URL(location).searchParams.get('cat');
+select(start!==null && cats[+start] ? +start : 0);
 </script>
 </body>
 </html>
