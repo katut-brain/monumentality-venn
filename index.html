@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>モニュメンタリティ可視化</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --ink:#2b2b2b; --line:#3a3a3a; --accent:#8a6d3b;
+    --circle:rgba(138,109,59,.10); --circleline:#8a6d3b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.6;}
+  header{padding:24px 20px 8px;text-align:center;}
+  header h1{font-size:1.4rem;margin:0 0 4px;letter-spacing:.04em;}
+  header p{margin:0;font-size:.82rem;color:#6b6b6b;}
+
+  .layout{display:flex;flex-wrap:wrap;gap:16px;padding:16px 20px 60px;max-width:1200px;margin:0 auto;}
+
+  /* sidebar */
+  .panel{flex:0 0 280px;background:#fff;border:1px solid #e0daccc;border-radius:10px;
+         padding:14px;max-height:80vh;overflow:auto;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .panel h2{font-size:.9rem;margin:0 0 10px;color:var(--accent);}
+  .cat{margin-bottom:12px;}
+  .cat-name{font-size:.74rem;color:#8a8a8a;font-weight:700;margin:0 0 4px;
+            border-bottom:1px dotted #ccc;padding-bottom:2px;}
+  .el-btn{display:block;width:100%;text-align:left;border:1px solid #ddd;background:#fafafa;
+          border-radius:6px;padding:6px 9px;margin:3px 0;font-size:.8rem;cursor:pointer;
+          transition:.15s;color:var(--ink);}
+  .el-btn:hover{background:#f0ead9;border-color:var(--accent);}
+  .el-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;}
+
+  /* stage */
+  .stage{flex:1 1 480px;min-width:320px;}
+  .stage-head{text-align:center;margin-bottom:10px;min-height:42px;}
+  .stage-head .label{font-size:1.05rem;font-weight:700;}
+  .stage-head .cat{font-size:.78rem;color:#8a8a8a;}
+
+  .venn{position:relative;border:2px dashed #c9c0a8;border-radius:14px;
+        background:#fbfaf6;padding:18px;min-height:420px;}
+  /* the big circle = 該当 */
+  .circle-zone{border:3px solid var(--circleline);border-radius:50%;
+        background:var(--circle);padding:30px 18px 18px;margin-top:20px;
+        display:flex;flex-wrap:wrap;gap:14px;justify-content:center;align-items:center;
+        min-height:330px;}
+  .zone-tag{position:absolute;font-size:.72rem;font-weight:700;letter-spacing:.1em;z-index:2;}
+  .tag-in{top:6px;left:50%;transform:translateX(-50%);color:var(--accent);
+          background:#fbfaf6;padding:0 8px;}
+  .tag-out{top:6px;right:18px;color:#b0a890;}
+
+  .outside{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:18px;
+           padding-top:14px;border-top:1px dotted #d8d0bb;}
+
+  /* card */
+  .card{width:104px;text-align:center;}
+  .thumb{width:96px;height:96px;border-radius:10px;overflow:hidden;position:relative;
+         margin:0 auto;background:#e8e3d5;display:flex;align-items:center;justify-content:center;}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb .noimg{font-size:.62rem;color:#9a9a9a;padding:4px;}
+  .card .nm{font-size:.72rem;margin-top:4px;word-break:break-word;}
+  /* ◎ = solid border, ○ = dashed border */
+  .card.yes  .thumb{border:3px solid #2e7d32;}
+  .card.maybe .thumb{border:3px dashed #f9a825;}
+  .qmark{position:absolute;top:2px;right:3px;background:rgba(0,0,0,.62);color:#fff;
+         font-size:.72rem;font-weight:700;width:17px;height:17px;border-radius:50%;
+         display:flex;align-items:center;justify-content:center;}
+  .card.dim{opacity:.5;}
+
+  .legend{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:6px 0 14px;font-size:.74rem;color:#555;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .sw{width:20px;height:20px;border-radius:5px;background:#e8e3d5;}
+  .sw.yes{border:3px solid #2e7d32;}
+  .sw.maybe{border:3px dashed #f9a825;}
+
+  .share{text-align:center;margin-top:8px;}
+  .share button{border:1px solid var(--accent);background:#fff;color:var(--accent);
+        border-radius:6px;padding:7px 16px;font-size:.82rem;cursor:pointer;}
+  .share button:hover{background:var(--accent);color:#fff;}
+  .toast{font-size:.76rem;color:#2e7d32;margin-left:10px;opacity:0;transition:.3s;}
+  .toast.show{opacity:1;}
+  .empty{text-align:center;color:#b0a890;font-size:.85rem;padding:40px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>モニュメンタリティ可視化</h1>
+  <p>左の要素を1つ選ぶと、各事例が「該当（円の内側）／非該当（外側）」に分かれます</p>
+</header>
+
+<div class="legend">
+  <span><i class="sw yes"></i>◎ 確実に該当（実線）</span>
+  <span><i class="sw maybe"></i>○ おそらく該当（点線）</span>
+  <span>? 印 = 不確か</span>
+</div>
+
+<div class="layout">
+  <aside class="panel" id="panel"><h2>要素を選ぶ</h2></aside>
+
+  <main class="stage">
+    <div class="stage-head" id="head"></div>
+    <div class="venn">
+      <span class="zone-tag tag-out">外側 = 非該当</span>
+      <div class="circle-zone" id="inside"></div>
+      <div class="outside" id="outside"></div>
+    </div>
+    <div class="share">
+      <button id="shareBtn">🔗 この表示のリンクをコピー</button>
+      <span class="toast" id="toast">コピーしました</span>
+    </div>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script>
+const panel=document.getElementById('panel');
+const head=document.getElementById('head');
+const inside=document.getElementById('inside');
+const outside=document.getElementById('outside');
+let current=null;
+
+// build sidebar grouped by category
+const groups={};
+ELEMENTS.forEach(e=>{(groups[e.category]=groups[e.category]||[]).push(e);});
+Object.keys(groups).forEach(cat=>{
+  const g=document.createElement('div');g.className='cat';
+  const h=document.createElement('div');h.className='cat-name';h.textContent=cat;g.appendChild(h);
+  groups[cat].forEach(e=>{
+    const b=document.createElement('button');b.className='el-btn';b.textContent=e.label;
+    b.dataset.id=e.id;b.onclick=()=>select(e.id);g.appendChild(b);
+  });
+  panel.appendChild(g);
+});
+
+function cardHtml(c,val){
+  const cls='card '+(val||'');
+  let inner;
+  if(c.img){inner=`<img src="${c.img}" alt="${c.name}" loading="lazy">`;}
+  else{inner=`<span class="noimg">${c.name}<br>(画像なし)</span>`;}
+  const q=(val==='yes_q'||val==='maybe_q')?'<span class="qmark">?</span>':'';
+  // normalize border class: yes_q->yes, maybe_q->maybe
+  const border=val.startsWith('yes')?'yes':val.startsWith('maybe')?'maybe':'';
+  const el=document.createElement('div');
+  el.className='card '+border;
+  el.innerHTML=`<div class="thumb">${inner}${q}</div><div class="nm">${c.name}</div>`;
+  return el;
+}
+
+function select(id){
+  current=id;
+  document.querySelectorAll('.el-btn').forEach(b=>b.classList.toggle('active',b.dataset.id===id));
+  const e=ELEMENTS.find(x=>x.id===id);
+  head.innerHTML=`<div class="label">${e.label}</div><div class="cat">${e.category}</div>`;
+  inside.innerHTML='';outside.innerHTML='';
+  let nIn=0;
+  CASES.forEach(c=>{
+    const val=c.scores[id]||'';
+    if(val){inside.appendChild(cardHtml(c,val));nIn++;}
+    else{const card=cardHtml(c,'');card.classList.add('dim');outside.appendChild(card);}
+  });
+  if(nIn===0){inside.innerHTML='<div class="empty">この要素に該当する事例はありません<br>（元データが空欄）</div>';}
+  // update URL
+  const u=new URL(location);u.searchParams.set('el',id);history.replaceState(null,'',u);
+}
+
+document.getElementById('shareBtn').onclick=()=>{
+  navigator.clipboard.writeText(location.href).then(()=>{
+    const t=document.getElementById('toast');t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),1600);
+  });
+};
+
+// init from URL or first element
+const start=new URL(location).searchParams.get('el');
+select(start && ELEMENTS.some(e=>e.id===start) ? start : ELEMENTS[0].id);
+</script>
+</body>
+</html>
