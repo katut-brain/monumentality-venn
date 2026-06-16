@@ -180,8 +180,8 @@ function select(idx){
     svg.appendChild(t);
   });
 
-  // ---- assign each case to a region group ----
-  const groups={}; const outside=[];
+  // ---- classify cases: single-circle / intersection / outside ----
+  const single={}; const multi={}; const outside=[];
   CASES.forEach(cs=>{
     const mem=[]; let anyMaybe=false, anyQ=false;
     items.forEach((it,i)=>{
@@ -189,45 +189,70 @@ function select(idx){
       if(info){mem.push(i); if(info.conf==='maybe')anyMaybe=true; if(info.q)anyQ=true;}
     });
     if(mem.length===0){outside.push({cs,q:false});return;}
-    const ring = anyMaybe ? 'in' : 'ring';   // ○ -> inner dashed, ◎ -> ring
-    const key=mem.join('-')+'|'+ring;
-    (groups[key]=groups[key]||{mem,ring,list:[]}).list.push({cs,q:anyQ});
+    const ring = anyMaybe ? 'in' : 'ring';   // ○ -> inner dashed, ◎ -> ring band
+    if(mem.length===1){
+      const k=mem[0]+'|'+ring;
+      (single[k]=single[k]||{i:mem[0],ring,list:[]}).list.push({cs,q:anyQ});
+    }else{
+      const k=mem.join('-')+'|'+ring;
+      (multi[k]=multi[k]||{mem,ring,list:[]}).list.push({cs,q:anyQ});
+    }
   });
 
-  // ---- base point per group ----
-  function basePoint(g){
-    const {mem,ring}=g;
-    if(mem.length===1){
-      const i=mem[0], c=C[i];
-      if(n===1){
-        const ry = ring==='in' ? R*0.28 : R*0.55;
-        return {x:c.x, y:c.y - ry};
+  // ---- build nodes with smart initial anchors ----
+  const nodes=[];
+  // single-membership: fan the cards out angularly along the ring / inner band
+  Object.values(single).forEach(g=>{
+    const c=C[g.i], m=g.list.length;
+    const rr = (g.ring==='in' ? 0.38 : 0.70) * R;
+    const outAng = (n===1) ? -Math.PI/2 : Math.atan2(c.y-CYC, c.x-CX);
+    g.list.forEach((item,k)=>{
+      let ang;
+      if(n===1){ ang = -Math.PI/2 + k*2*Math.PI/m; }      // spread around full circle
+      else{
+        const span = m<=1 ? 0 : Math.min(2.5, 0.7+m*0.34); // widen arc with count
+        ang = outAng + (m===1?0:(k/(m-1)-0.5)*span);
       }
-      const ang=Math.atan2(c.y-CYC,c.x-CX);
-      const rad = ring==='in' ? R*0.28 : R*0.52;
-      return {x:c.x+Math.cos(ang)*rad, y:c.y+Math.sin(ang)*rad, single:false};
-    }
-    // intersection: centroid of member centers
-    let mx=0,my=0; mem.forEach(i=>{mx+=C[i].x;my+=C[i].y;});
-    mx/=mem.length; my/=mem.length;
-    if(ring==='in'){ mx+=(CX-mx)*0.15; my+=(CYC-my)*0.15; }
-    return {x:mx,y:my,single:false};
-  }
+      nodes.push({cs:item.cs,q:item.q,mem:[g.i],single:true,x:c.x+Math.cos(ang)*rr,y:c.y+Math.sin(ang)*rr});
+    });
+  });
+  // intersection: seed near centroid, jittered
+  Object.values(multi).forEach(g=>{
+    let mx=0,my=0; g.mem.forEach(i=>{mx+=C[i].x;my+=C[i].y;}); mx/=g.mem.length; my/=g.mem.length;
+    if(g.ring==='in'){ mx+=(CX-mx)*0.12; my+=(CYC-my)*0.12; }
+    g.list.forEach((item,k)=>{
+      const a=k*2.399; // golden-angle scatter
+      const sx=mx+Math.cos(a)*18*Math.sqrt(k), sy=my+Math.sin(a)*18*Math.sqrt(k);
+      nodes.push({cs:item.cs,q:item.q,mem:g.mem,single:false,ax:mx,ay:my,x:sx,y:sy});
+    });
+  });
 
-  // ---- layout cards in a cluster around base ----
-  function placeCards(list, base){
-    const m=list.length;
-    const cols=Math.ceil(Math.sqrt(m));
-    const sp=60;
-    const rows=Math.ceil(m/cols);
-    list.forEach((item,k)=>{
-      const r=Math.floor(k/cols), col=k%cols;
-      const colsInRow = (r===rows-1) ? (m-cols*(rows-1)) : cols;
-      const x=base.x + (col-(colsInRow-1)/2)*sp;
-      const y=base.y + (r-(rows-1)/2)*sp;
-      addCard(item.cs,item.q,x,y);
+  // ---- relax: push apart overlaps; single-membership cards stay in their circle,
+  //      multi-membership cards are softly held near their overlap centroid ----
+  const CR=29, minD=58, lim=R-CR-6;
+  for(let it=0; it<150; it++){
+    for(let a=0;a<nodes.length;a++)for(let b=a+1;b<nodes.length;b++){
+      let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y;
+      let d=Math.hypot(dx,dy);
+      if(d===0){dx=Math.random()-0.5;dy=Math.random()-0.5;d=Math.hypot(dx,dy);}
+      if(d<minD){
+        const p=(minD-d)/2/d;
+        nodes[a].x-=dx*p; nodes[a].y-=dy*p;
+        nodes[b].x+=dx*p; nodes[b].y+=dy*p;
+      }
+    }
+    nodes.forEach(nd=>{
+      if(nd.single){
+        const c=C[nd.mem[0]]; let dx=nd.x-c.x, dy=nd.y-c.y, d=Math.hypot(dx,dy);
+        if(d>lim){ nd.x=c.x+dx/d*lim; nd.y=c.y+dy/d*lim; }   // hard containment
+      }else{
+        nd.x+=(nd.ax-nd.x)*0.05; nd.y+=(nd.ay-nd.y)*0.05;    // soft pull to overlap centroid
+      }
+      nd.x=Math.max(CR+6,Math.min(W-CR-6,nd.x));
+      nd.y=Math.max(CR+10,Math.min(OUT_Y-78,nd.y));
     });
   }
+  nodes.forEach(nd=>addCard(nd.cs,nd.q,nd.x,nd.y));
 
   function addCard(cs,q,x,y){
     const d=document.createElement('div');d.className='card';
@@ -238,23 +263,22 @@ function select(idx){
     frame.appendChild(d);
   }
 
-  Object.values(groups).forEach(g=>placeCards(g.list, basePoint(g)));
-
   // ---- outside cases: row(s) along the bottom inside the frame ----
   if(outside.length){
+    const sp=58, rowH=58, bottomY=680;
+    const per=Math.min(outside.length, Math.floor((W-44)/sp));
+    const rows=Math.ceil(outside.length/per);
+    const baseY=bottomY-(rows-1)*rowH;
     const NS2='http://www.w3.org/2000/svg';
     const dl=document.createElementNS(NS2,'text');
-    dl.setAttribute('class','divider-label');dl.setAttribute('x',CX);dl.setAttribute('y',OUT_Y-44);
+    dl.setAttribute('class','divider-label');dl.setAttribute('x',CX);dl.setAttribute('y',baseY-42);
     dl.setAttribute('text-anchor','middle');dl.textContent='— どの円にも入らない —';
     svg.appendChild(dl);
-    const sp=66; const per=Math.min(outside.length, Math.floor((W-60)/sp));
     outside.forEach((item,k)=>{
       const row=Math.floor(k/per);
-      const inRow = Math.min(per, outside.length-row*per);
+      const inRow=Math.min(per, outside.length-row*per);
       const col=k%per;
-      const x=CX + (col-(inRow-1)/2)*sp;
-      const y=OUT_Y + row*64;
-      addCard(item.cs,item.q,x,y);
+      addCard(item.cs,item.q, CX+(col-(inRow-1)/2)*sp, baseY+row*rowH);
     });
   }
 
