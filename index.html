@@ -4,78 +4,105 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>モニュメンタリティ可視化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  :root{ --ink:#1a1a1a; --line:#1a1a1a; --mut:#9a9a9a; --bg:#ffffff; }
+  :root{
+    --paper:#f4f1ea; --canvas:#fbf9f4; --ink:#222019; --ink2:#6f665a;
+    --accent:#9a6b3f; --hair:#ddd5c6; --hair2:#e7e0d2; --place:#e9e3d6;
+    --serif:"Zen Old Mincho",serif;
+    --sans:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
-       background:var(--bg);color:var(--ink);line-height:1.5;}
-  header{padding:22px 20px 6px;text-align:center;}
-  header h1{font-size:1.25rem;margin:0 0 4px;font-weight:600;letter-spacing:.04em;}
-  header p{margin:0;font-size:.78rem;color:#777;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink);
+       line-height:1.6;-webkit-font-smoothing:antialiased;}
 
-  .legend{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin:8px 0 4px;font-size:.74rem;color:#555;}
-  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  header{padding:40px 20px 4px;text-align:center;}
+  .kicker{font-size:.66rem;letter-spacing:.34em;text-transform:uppercase;color:var(--accent);
+          font-weight:700;margin-bottom:10px;}
+  header h1{font-family:var(--serif);font-size:2.05rem;font-weight:600;margin:0;letter-spacing:.06em;
+            color:var(--ink);}
+  header p{margin:10px auto 0;font-size:.83rem;color:var(--ink2);max-width:30em;}
+  .rule{width:34px;height:1px;background:var(--accent);margin:16px auto 0;opacity:.6;}
+
+  .legend{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin:22px 0 4px;
+          font-size:.72rem;color:var(--ink2);}
+  .legend span{display:inline-flex;align-items:center;gap:8px;}
   .lc{width:22px;height:22px;border-radius:50%;}
-  .lc.solid{border:1.5px solid #1a1a1a;}
-  .lc.dash{border:1.5px dashed #1a1a1a;}
-  .lq{font-size:1.2rem;color:rgba(0,0,0,.25);font-weight:700;}
+  .lc.solid{border:1.5px solid var(--ink);}
+  .lc.dash{border:1.5px dashed var(--ink);opacity:.7;}
+  .lq{font-family:var(--serif);font-size:1.3rem;color:rgba(34,32,25,.26);font-weight:600;line-height:1;}
 
-  .layout{display:flex;flex-wrap:wrap;gap:18px;padding:14px 20px 60px;max-width:1180px;margin:0 auto;justify-content:center;}
-  .panel{flex:0 0 220px;align-self:flex-start;}
-  .panel h2{font-size:.82rem;margin:0 0 8px;color:#666;font-weight:600;}
-  .cat-btn{display:block;width:100%;text-align:left;border:1px solid #ddd;background:#fff;
-           border-radius:7px;padding:9px 12px;margin:4px 0;font-size:.84rem;cursor:pointer;
-           transition:.12s;color:var(--ink);}
-  .cat-btn:hover{border-color:#1a1a1a;}
-  .cat-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a;font-weight:600;}
-  .cat-btn small{display:block;color:inherit;opacity:.6;font-size:.68rem;margin-top:1px;}
+  .layout{display:flex;flex-wrap:wrap;gap:30px;padding:20px 26px 72px;max-width:1180px;
+          margin:0 auto;justify-content:center;}
+  .panel{flex:0 0 232px;align-self:flex-start;}
+  .panel h2{font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;margin:0 0 12px 2px;
+            color:var(--ink2);font-weight:700;}
+  .cat-btn{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%;
+           text-align:left;border:0;border-bottom:1px solid var(--hair2);background:transparent;
+           padding:11px 4px 11px 14px;margin:0;font-family:var(--sans);font-size:.9rem;cursor:pointer;
+           color:var(--ink);position:relative;transition:.16s ease;}
+  .cat-btn:before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+                  width:2px;height:0;background:var(--accent);transition:height .16s ease;}
+  .cat-btn:hover{color:var(--accent);padding-left:18px;}
+  .cat-btn.active{color:var(--ink);font-weight:700;}
+  .cat-btn.active:before{height:62%;}
+  .cat-btn small{color:var(--ink2);opacity:.75;font-size:.66rem;font-weight:400;white-space:nowrap;}
 
   .stage-wrap{flex:1 1 auto;}
-  .stage-head{text-align:center;margin-bottom:6px;font-size:1.05rem;font-weight:600;min-height:24px;}
+  .stage-head{text-align:center;margin-bottom:14px;min-height:42px;}
+  .stage-head .t{font-family:var(--serif);font-size:1.5rem;font-weight:600;letter-spacing:.04em;}
+  .stage-head .s{font-size:.72rem;color:var(--ink2);margin-top:2px;letter-spacing:.02em;}
 
   /* the enclosing frame = 外枠 */
-  .frame{position:relative;width:760px;max-width:100%;height:730px;border:1.5px solid #1a1a1a;
-         border-radius:22px;margin:0 auto;overflow:hidden;background:#fff;}
+  .frame{position:relative;width:760px;max-width:100%;height:730px;border:1px solid var(--hair);
+         border-radius:26px;margin:0 auto;overflow:hidden;background:var(--canvas);
+         box-shadow:0 18px 50px -28px rgba(60,48,30,.4), inset 0 1px 0 rgba(255,255,255,.6);}
   .frame svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-  .circle-label{font-size:12px;fill:#1a1a1a;font-weight:600;}
-  .divider-label{font-size:11px;fill:#b0b0b0;}
+  .circle-label{font-family:var(--sans);font-size:11.5px;fill:var(--ink);font-weight:500;letter-spacing:.02em;
+                paint-order:stroke;stroke:var(--canvas);stroke-width:3.5px;stroke-linejoin:round;}
+  .divider-label{font-family:var(--sans);font-size:10.5px;fill:#b7ad9b;letter-spacing:.16em;}
 
   .card{position:absolute;width:58px;transform:translate(-50%,-50%);text-align:center;
-        cursor:default;transition:transform .08s;}
-  .card:hover{transform:translate(-50%,-50%) scale(1.12);z-index:50;}
+        cursor:default;transition:transform .14s cubic-bezier(.2,.7,.3,1);}
+  .card:hover{transform:translate(-50%,-50%) scale(1.18);z-index:50;}
   .thumb{width:54px;height:54px;border-radius:50%;overflow:hidden;position:relative;margin:0 auto;
-         border:1px solid #1a1a1a;background:#eee;display:flex;align-items:center;justify-content:center;}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-  .thumb .noimg{font-size:.5rem;color:#888;padding:2px;line-height:1.1;}
+         border:1.5px solid var(--canvas);background:var(--place);
+         box-shadow:0 0 0 1px rgba(34,32,25,.55), 0 4px 10px -4px rgba(40,30,18,.5);
+         display:flex;align-items:center;justify-content:center;}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.92) contrast(1.02);}
+  .thumb .noimg{font-size:.5rem;color:var(--ink2);padding:2px;line-height:1.12;font-weight:500;}
   .qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-         font-size:2.4rem;font-weight:800;color:rgba(0,0,0,.28);pointer-events:none;}
-  .nm{font-size:.58rem;margin-top:2px;color:#222;width:76px;margin-left:-9px;line-height:1.12;
-      text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff;}
-  .circle-label{paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;}
+         font-family:var(--serif);font-size:2.5rem;font-weight:600;color:rgba(20,18,12,.30);pointer-events:none;}
+  .nm{font-size:.575rem;margin-top:4px;color:var(--ink);width:78px;margin-left:-10px;line-height:1.16;
+      letter-spacing:.01em;text-shadow:0 0 3px var(--canvas),0 0 3px var(--canvas),0 0 2px var(--canvas);}
 
-  .hint{text-align:center;font-size:.72rem;color:#999;margin-top:8px;}
-  .share{text-align:center;margin-top:12px;}
-  .share button{border:1px solid #1a1a1a;background:#fff;color:#1a1a1a;border-radius:7px;
-        padding:7px 16px;font-size:.82rem;cursor:pointer;}
-  .share button:hover{background:#1a1a1a;color:#fff;}
-  .toast{font-size:.76rem;color:#1a7d32;margin-left:10px;opacity:0;transition:.3s;}
+  .hint{text-align:center;font-size:.7rem;color:#a99f8d;margin-top:14px;letter-spacing:.02em;}
+  .share{text-align:center;margin-top:14px;}
+  .share button{font-family:var(--sans);border:1px solid var(--ink);background:transparent;color:var(--ink);
+        border-radius:999px;padding:9px 22px;font-size:.78rem;letter-spacing:.04em;cursor:pointer;transition:.16s;}
+  .share button:hover{background:var(--ink);color:var(--canvas);}
+  .toast{font-size:.74rem;color:var(--accent);margin-left:12px;opacity:0;transition:.3s;}
   .toast.show{opacity:1;}
 </style>
 </head>
 <body>
 <header>
-  <h1>モニュメンタリティ可視化</h1>
-  <p>カテゴリーを選ぶと、その観点の項目が円になって重なります</p>
+  <div class="kicker">Monumentality</div>
+  <h1>モニュメンタリティの解剖</h1>
+  <p>観点をひとつ選ぶと、その項目が円となって重なり、各事例がどこに位置づくかが見えてきます。</p>
+  <div class="rule"></div>
 </header>
 
 <div class="legend">
-  <span><i class="lc solid"></i>実線の円 = 該当（◎）</span>
-  <span><i class="lc dash"></i>内側の点線円 = おそらく該当（○）</span>
+  <span><i class="lc solid"></i>実線の円 ＝ 該当（◎）</span>
+  <span><i class="lc dash"></i>内側の点線円 ＝ おそらく該当（○）</span>
   <span><i class="lq">?</i> 不確か</span>
 </div>
 
 <div class="layout">
-  <aside class="panel"><h2>観点（カテゴリー）</h2><div id="cats"></div></aside>
+  <aside class="panel"><h2>観点 / Perspective</h2><div id="cats"></div></aside>
   <main class="stage-wrap">
     <div class="stage-head" id="head"></div>
     <div class="frame" id="frame"><svg id="svg" viewBox="0 0 760 730" preserveAspectRatio="xMidYMid meet"></svg></div>
@@ -148,7 +175,7 @@ function select(idx){
   const n=items.length;
   const {R,spread}=preset(n);
   const C=centers(n,spread);
-  head.textContent=cat.category;
+  head.innerHTML=`<div class="t">${cat.category}</div><div class="s">${n}つの項目${n>=2?' ・ 円の重なりが多面性を示す':''}</div>`;
 
   // clear
   svg.innerHTML='';
@@ -159,12 +186,12 @@ function select(idx){
   C.forEach((c,i)=>{
     const c1=document.createElementNS(NS,'circle');
     c1.setAttribute('cx',c.x);c1.setAttribute('cy',c.y);c1.setAttribute('r',R);
-    c1.setAttribute('fill','none');c1.setAttribute('stroke','#1a1a1a');c1.setAttribute('stroke-width','1.5');
+    c1.setAttribute('fill','rgba(154,107,63,0.045)');c1.setAttribute('stroke','#26231c');c1.setAttribute('stroke-width','1.25');
     svg.appendChild(c1);
     const c2=document.createElementNS(NS,'circle');
     c2.setAttribute('cx',c.x);c2.setAttribute('cy',c.y);c2.setAttribute('r',R*0.58);
-    c2.setAttribute('fill','none');c2.setAttribute('stroke','#1a1a1a');c2.setAttribute('stroke-width','1.2');
-    c2.setAttribute('stroke-dasharray','5 5');c2.setAttribute('opacity','0.75');
+    c2.setAttribute('fill','none');c2.setAttribute('stroke','#26231c');c2.setAttribute('stroke-width','1');
+    c2.setAttribute('stroke-dasharray','4 5');c2.setAttribute('opacity','0.45');
     svg.appendChild(c2);
     // label at outward perimeter
     const ang = n===1 ? -Math.PI/2 : Math.atan2(c.y-CYC,c.x-CX);
