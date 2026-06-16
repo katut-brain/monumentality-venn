@@ -67,11 +67,11 @@
   .card{position:absolute;width:58px;transform:translate(-50%,-50%);text-align:center;
         cursor:default;transition:transform .14s cubic-bezier(.2,.7,.3,1);}
   .card:hover{transform:translate(-50%,-50%) scale(1.18);z-index:50;}
-  .thumb{width:54px;height:54px;border-radius:50%;overflow:hidden;position:relative;margin:0 auto;
-         border:1.5px solid var(--canvas);background:var(--place);
-         box-shadow:0 0 0 1px rgba(34,32,25,.55), 0 4px 10px -4px rgba(40,30,18,.5);
+  .thumb{width:52px;height:52px;border-radius:9px;overflow:hidden;position:relative;margin:0 auto;
+         border:1px solid rgba(34,32,25,.16);background:var(--place);
+         box-shadow:0 3px 10px -4px rgba(40,30,18,.45);
          display:flex;align-items:center;justify-content:center;}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.92) contrast(1.02);}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
   .thumb .noimg{font-size:.5rem;color:var(--ink2);padding:2px;line-height:1.12;font-weight:500;}
   .qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
          font-family:var(--serif);font-size:2.5rem;font-weight:600;color:rgba(20,18,12,.30);pointer-events:none;}
@@ -91,14 +91,15 @@
 <header>
   <div class="kicker">Monumentality</div>
   <h1>モニュメンタリティの解剖</h1>
-  <p>観点をひとつ選ぶと、その項目が円となって重なり、各事例がどこに位置づくかが見えてきます。</p>
+  <p>観点をひとつ選ぶと、その項目がハブになり、各事例が「どの項目を・どれくらい確実に」持つかが線でつながって見えてきます。</p>
   <div class="rule"></div>
 </header>
 
 <div class="legend">
-  <span><i class="lc solid"></i>実線の円 ＝ 該当（◎）</span>
-  <span><i class="lc dash"></i>内側の点線円 ＝ おそらく該当（○）</span>
+  <span><svg width="28" height="12" aria-hidden="true"><line x1="2" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="1.5"/></svg>実線 ＝ 該当（◎）</span>
+  <span><svg width="28" height="12" aria-hidden="true"><line x1="2" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/></svg>点線 ＝ おそらく（○）</span>
   <span><i class="lq">?</i> 不確か</span>
+  <span><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="#9a6b3f"/></svg>＝ 観点の項目（ハブ）</span>
 </div>
 
 <div class="layout">
@@ -173,112 +174,76 @@ function select(idx){
   const cat=cats[idx];
   const items=cat.items;
   const n=items.length;
-  const {R,spread}=preset(n);
-  const C=centers(n,spread);
-  head.innerHTML=`<div class="t">${cat.category}</div><div class="s">${n}つの項目${n>=2?' ・ 円の重なりが多面性を示す':''}</div>`;
+  head.innerHTML=`<div class="t">${cat.category}</div><div class="s">${n}つの項目 ・ 線で結ばれた事例がその項目を持つ</div>`;
 
   // clear
   svg.innerHTML='';
   [...frame.querySelectorAll('.card')].forEach(e=>e.remove());
 
   const NS='http://www.w3.org/2000/svg';
-  // draw solid + dashed circles
-  C.forEach((c,i)=>{
-    const c1=document.createElementNS(NS,'circle');
-    c1.setAttribute('cx',c.x);c1.setAttribute('cy',c.y);c1.setAttribute('r',R);
-    c1.setAttribute('fill','rgba(154,107,63,0.045)');c1.setAttribute('stroke','#26231c');c1.setAttribute('stroke-width','1.25');
-    svg.appendChild(c1);
-    const c2=document.createElementNS(NS,'circle');
-    c2.setAttribute('cx',c.x);c2.setAttribute('cy',c.y);c2.setAttribute('r',R*0.58);
-    c2.setAttribute('fill','none');c2.setAttribute('stroke','#26231c');c2.setAttribute('stroke-width','1');
-    c2.setAttribute('stroke-dasharray','4 5');c2.setAttribute('opacity','0.45');
-    svg.appendChild(c2);
-    // label at outward perimeter
-    const ang = n===1 ? -Math.PI/2 : Math.atan2(c.y-CYC,c.x-CX);
-    let lx=c.x+Math.cos(ang)*(R+2), ly=c.y+Math.sin(ang)*(R+2);
-    ly = ly<CYC ? ly-6 : ly+14;
-    ly = Math.max(15, Math.min(H-8, ly));     // keep inside frame
-    lx = Math.max(86, Math.min(W-86, lx));
+  const CXn=380, CYn=330;
+  // hub positions adapt to the number of items（要素数で形が変わる）
+  const HR=({1:0,2:150,3:182,4:200,5:212})[n] || 222;
+  const hubs=[];
+  if(n===1) hubs.push({x:CXn,y:200});
+  else if(n===2) hubs.push({x:CXn-HR,y:CYn},{x:CXn+HR,y:CYn});
+  else for(let i=0;i<n;i++){const a=(-90+i*360/n)*Math.PI/180;hubs.push({x:CXn+HR*Math.cos(a),y:CYn+HR*Math.sin(a)});}
+
+  // ---- each case → a node; anchor = centroid of the hubs it belongs to ----
+  const nodes=[]; const outside=[];
+  CASES.forEach(cs=>{
+    const mem=[]; let anyQ=false;
+    items.forEach((it,i)=>{const info=norm(cs.scores[it.id]); if(info){mem.push({i,conf:info.conf}); if(info.q)anyQ=true;}});
+    if(!mem.length){outside.push({cs,q:false});return;}
+    let mx=0,my=0; mem.forEach(m=>{mx+=hubs[m.i].x;my+=hubs[m.i].y;}); mx/=mem.length; my/=mem.length;
+    if(mem.length===1){ mx+=(CXn-mx)*0.22; my+=(CYn-my)*0.22; }   // pull lone nodes just inside their hub
+    nodes.push({cs,q:anyQ,mem,ax:mx,ay:my,x:mx+(Math.random()-.5)*26,y:my+(Math.random()-.5)*26});
+  });
+
+  // ---- relax: spring to anchor + mutual repulsion + frame clamp ----
+  const CR=28, minD=62, topPad=72, botPad=(outside.length?150:48);
+  for(let it=0; it<320; it++){
+    for(let a=0;a<nodes.length;a++)for(let b=a+1;b<nodes.length;b++){
+      let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y, d=Math.hypot(dx,dy);
+      if(d===0){dx=Math.random()-.5;dy=Math.random()-.5;d=Math.hypot(dx,dy);}
+      if(d<minD){const p=(minD-d)/2/d; nodes[a].x-=dx*p;nodes[a].y-=dy*p;nodes[b].x+=dx*p;nodes[b].y+=dy*p;}
+    }
+    nodes.forEach(nd=>{
+      const k=0.045;                       // gentle spring so repulsion can fully separate
+      nd.x+=(nd.ax-nd.x)*k; nd.y+=(nd.ay-nd.y)*k;
+      nd.x=Math.max(CR+8,Math.min(W-CR-8,nd.x));
+      nd.y=Math.max(topPad,Math.min(H-botPad,nd.y));
+    });
+  }
+
+  // ---- links: case → each of its hubs (solid=◎ / dashed=○) ----
+  nodes.forEach(nd=>nd.mem.forEach(m=>{
+    const h=hubs[m.i], ln=document.createElementNS(NS,'line');
+    ln.setAttribute('x1',nd.x);ln.setAttribute('y1',nd.y);ln.setAttribute('x2',h.x);ln.setAttribute('y2',h.y);
+    ln.setAttribute('stroke','#26231c');ln.setAttribute('stroke-width','1');
+    if(m.conf==='maybe'){ln.setAttribute('stroke-dasharray','3 4');ln.setAttribute('opacity','0.30');}
+    else ln.setAttribute('opacity','0.42');
+    svg.appendChild(ln);
+  }));
+
+  // ---- hubs (item anchors) + labels, drawn over the links ----
+  hubs.forEach((h,i)=>{
+    const dot=document.createElementNS(NS,'circle');
+    dot.setAttribute('cx',h.x);dot.setAttribute('cy',h.y);dot.setAttribute('r','7');
+    dot.setAttribute('fill','#9a6b3f');dot.setAttribute('stroke','#fbf9f4');dot.setAttribute('stroke-width','2.5');
+    svg.appendChild(dot);
+    const ang = n===1 ? -Math.PI/2 : Math.atan2(h.y-CYn,h.x-CXn);
+    let lx=h.x+Math.cos(ang)*15, ly=h.y+Math.sin(ang)*15;
+    ly = ly<CYn ? ly-7 : ly+15;
+    ly=Math.max(16,Math.min(H-8,ly)); lx=Math.max(82,Math.min(W-82,lx));
     const t=document.createElementNS(NS,'text');
     t.setAttribute('class','circle-label');
     t.setAttribute('x',lx);t.setAttribute('y',ly);
-    t.setAttribute('text-anchor','middle');
+    t.setAttribute('text-anchor', lx<CXn-30?'end':lx>CXn+30?'start':'middle');
     t.textContent=items[i].label;
     svg.appendChild(t);
   });
 
-  // ---- classify cases: single-circle / intersection / outside ----
-  const single={}; const multi={}; const outside=[];
-  CASES.forEach(cs=>{
-    const mem=[]; let anyMaybe=false, anyQ=false;
-    items.forEach((it,i)=>{
-      const info=norm(cs.scores[it.id]);
-      if(info){mem.push(i); if(info.conf==='maybe')anyMaybe=true; if(info.q)anyQ=true;}
-    });
-    if(mem.length===0){outside.push({cs,q:false});return;}
-    const ring = anyMaybe ? 'in' : 'ring';   // ○ -> inner dashed, ◎ -> ring band
-    if(mem.length===1){
-      const k=mem[0]+'|'+ring;
-      (single[k]=single[k]||{i:mem[0],ring,list:[]}).list.push({cs,q:anyQ});
-    }else{
-      const k=mem.join('-')+'|'+ring;
-      (multi[k]=multi[k]||{mem,ring,list:[]}).list.push({cs,q:anyQ});
-    }
-  });
-
-  // ---- build nodes with smart initial anchors ----
-  const nodes=[];
-  // single-membership: fan the cards out angularly along the ring / inner band
-  Object.values(single).forEach(g=>{
-    const c=C[g.i], m=g.list.length;
-    const rr = (g.ring==='in' ? 0.38 : 0.70) * R;
-    const outAng = (n===1) ? -Math.PI/2 : Math.atan2(c.y-CYC, c.x-CX);
-    g.list.forEach((item,k)=>{
-      let ang;
-      if(n===1){ ang = -Math.PI/2 + k*2*Math.PI/m; }      // spread around full circle
-      else{
-        const span = m<=1 ? 0 : Math.min(2.5, 0.7+m*0.34); // widen arc with count
-        ang = outAng + (m===1?0:(k/(m-1)-0.5)*span);
-      }
-      nodes.push({cs:item.cs,q:item.q,mem:[g.i],single:true,x:c.x+Math.cos(ang)*rr,y:c.y+Math.sin(ang)*rr});
-    });
-  });
-  // intersection: seed near centroid, jittered
-  Object.values(multi).forEach(g=>{
-    let mx=0,my=0; g.mem.forEach(i=>{mx+=C[i].x;my+=C[i].y;}); mx/=g.mem.length; my/=g.mem.length;
-    if(g.ring==='in'){ mx+=(CX-mx)*0.12; my+=(CYC-my)*0.12; }
-    g.list.forEach((item,k)=>{
-      const a=k*2.399; // golden-angle scatter
-      const sx=mx+Math.cos(a)*18*Math.sqrt(k), sy=my+Math.sin(a)*18*Math.sqrt(k);
-      nodes.push({cs:item.cs,q:item.q,mem:g.mem,single:false,ax:mx,ay:my,x:sx,y:sy});
-    });
-  });
-
-  // ---- relax: push apart overlaps; single-membership cards stay in their circle,
-  //      multi-membership cards are softly held near their overlap centroid ----
-  const CR=29, minD=58, lim=R-CR-6;
-  for(let it=0; it<150; it++){
-    for(let a=0;a<nodes.length;a++)for(let b=a+1;b<nodes.length;b++){
-      let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y;
-      let d=Math.hypot(dx,dy);
-      if(d===0){dx=Math.random()-0.5;dy=Math.random()-0.5;d=Math.hypot(dx,dy);}
-      if(d<minD){
-        const p=(minD-d)/2/d;
-        nodes[a].x-=dx*p; nodes[a].y-=dy*p;
-        nodes[b].x+=dx*p; nodes[b].y+=dy*p;
-      }
-    }
-    nodes.forEach(nd=>{
-      if(nd.single){
-        const c=C[nd.mem[0]]; let dx=nd.x-c.x, dy=nd.y-c.y, d=Math.hypot(dx,dy);
-        if(d>lim){ nd.x=c.x+dx/d*lim; nd.y=c.y+dy/d*lim; }   // hard containment
-      }else{
-        nd.x+=(nd.ax-nd.x)*0.05; nd.y+=(nd.ay-nd.y)*0.05;    // soft pull to overlap centroid
-      }
-      nd.x=Math.max(CR+6,Math.min(W-CR-6,nd.x));
-      nd.y=Math.max(CR+10,Math.min(OUT_Y-78,nd.y));
-    });
-  }
   nodes.forEach(nd=>addCard(nd.cs,nd.q,nd.x,nd.y));
 
   function addCard(cs,q,x,y){
@@ -299,7 +264,7 @@ function select(idx){
     const NS2='http://www.w3.org/2000/svg';
     const dl=document.createElementNS(NS2,'text');
     dl.setAttribute('class','divider-label');dl.setAttribute('x',CX);dl.setAttribute('y',baseY-42);
-    dl.setAttribute('text-anchor','middle');dl.textContent='— どの円にも入らない —';
+    dl.setAttribute('text-anchor','middle');dl.textContent='— どの項目にも該当しない —';
     svg.appendChild(dl);
     outside.forEach((item,k)=>{
       const row=Math.floor(k/per);
