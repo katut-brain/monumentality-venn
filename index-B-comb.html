@@ -106,7 +106,10 @@
   .tab:hover{color:var(--ink);}
   .tab.active{color:var(--comb);font-weight:700;}
   .tab.active:after{transform:scaleX(1);}
-  /* すべてタブ：全体網の入口として少し強調 */
+  /* すべてタブ：全体網の入口として少し強調
+     border-right:1px  → design.md border-base (1px)
+     padding-right:16px → design.md space-4 (16px)
+     margin-right:4px   → design.md space-1 (4px) */
   .tab-all{border-right:1px solid var(--hair);padding-right:16px;margin-right:4px;}
 
   .stage{max-width:1040px;margin:0 auto;padding:32px 24px 90px;}
