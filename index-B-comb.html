@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>モニュメンタリティ ― 網を梳く</title>
+
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+  思想設計 ― 成果物B「軸でほどいた、梳き上がりの網」
+  + Aビュー「もつれた全体網」（入口）
+═══════════════════════════════════════════════════════════════════════════════
+
+  【中心思想】
+  モニュメンタリティとは "関係の網" である。事例（モノ）と観点（軸）のあいだに
+  張られた無数の関係が絡まり合って、ひとつの網をなしている。
+  この道具は、その絡まった網を「観点」という櫛で梳いて、絡まりをほどく装置。
+  12個の別々のベン図ではない ―― 一つの網を、軸という櫛で梳き直しているだけ。
+
+  【A＝もつれた全体網（入口）→ カテゴリを選ぶ → 網がほどけてBになる】
+  Aモードでは全12カテゴリのハブを同時表示。各事例は自分が属する全カテゴリの
+  ハブ群の重心へ引き寄せられて中間位置に落ち着く＝もつれた全体網。
+  カテゴリタブを選ぶとA→B遷移：選んだカテゴリのハブだけ残り、
+  他のハブが消えて、ノードが泳ぎ直す。
+
+  【思想 → 形（表層は思想の帰結。先に決めない）】
+
+  1. 「ほどく」は動詞である → 遷移そのものが主役
+     軸を切り替えても網を瞬間再構築しない。ノードは現在位置を保持したまま、
+     requestAnimationFrame で力学ループを回し続け、新しいアンカー（重心）へ
+     向かって連続的に動き、糸が結び直る。もつれ→ほぐれの "運動" が見える。
+     これがBの心臓。既存 index-minimal の「一瞬で作り直す」を運動に変えた。
+       → 実装: relax() を単発で回さず、tick() を常時 rAF で回す。
+         軸切替時は anchor だけ差し替え、位置は据え置き＝そこから泳いで結び直る。
+
+  2. 主役は糸（関係）。写真（モノ）は結節点にすぎない
+     → 写真サムネは小さく・彩度を落とし・縁を消す。糸は太さと濃さで前に出す。
+     → レイヤ順は 領域 → 糸 → ハブ → 写真 ではなく、糸を最も目立つ層として
+       濃度を上げ、写真は控えめに沈める。
+
+  3. 確信度は隠すノイズでなく "糸の質感"
+     ◎ yes  = 確かな糸：実線・濃い・太い（しっかり張った糸）
+     ○ maybe = ゆるい糸：細い点線・薄い（たわんだ糸）
+     ?  _q   = 最も頼りない糸：粗い点線・最も薄い・結節点に淡い「?」
+     → 確信度ごとに線の張り（stroke-width / opacity / dash）を変え、
+       網の手触りとして確信のグラデーションが読める。
+
+  4. 色とタイポは「糸が最も読みやすいこと」から逆算
+     → 背景は沈んだ墨紺（夜の作業灯の下で糸を見るように）。安い白地を避ける。
+       糸は生成り〜骨色で発光させ、暗い地の上で関係線が一番手前に立つ。
+     → 軸（観点）＝梳く方向のみ、櫛の色＝くすんだ金（真鍮の櫛）を一点差し。
+       装飾としてでなく「今どの方向に梳いているか」を示す機能色。
+     → タイポ：見出し＝明朝（Zen Old Mincho／思索の声）、
+       UI/ラベル＝ゴシック（Zen Kaku Gothic／観察の声）。
+       The Pudding 的な serif×sans。引き算で質感を出し、飾りを足さない。
+
+  5. 該当しない事例も網の一部
+     どの項目にも掛からない事例は消さず、下部の "梳き残し" 帯へ流れていく。
+     軸を変えれば、また網へ泳いで戻る。ほどく対象としての全体性を保つ。
+
+  【なぜ既存 index-minimal を土台にしたか】
+  データ処理・確信度の正規化・カード生成・詳細パネルは既に良い。
+  Bが変えるのは一点 ――「再配置を瞬間からほどく運動へ」。
+  思想（ほどくは動詞）を、実装（持続的力学ループ）として宿らせた。
+═══════════════════════════════════════════════════════════════════════════════
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* 沈んだ墨紺の地 ―― 暗い作業灯の下で糸を見るための背景（思想4） */
+    --bg:#15171f; --bg2:#1b1e28; --panel:#1e2230;
+    /* 糸＝生成り〜骨色。暗地で関係線が最前面に立つ */
+    --thread:#e9e2d2; --thread-soft:#9a9485;
+    --ink:#ece8df; --ink2:#9c9a93; --ink3:#6b6a64;
+    /* 真鍮の櫛＝梳く方向（軸）を示す唯一の機能色 */
+    --comb:#c79a4e; --comb-soft:#7a6234;
+    --hair:#2a2e3b; --hair2:#23222a;
+    --serif:"Zen Old Mincho",serif;
+    --sans:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);}
+  body{font-family:var(--sans);color:var(--ink);line-height:1.6;
+       -webkit-font-smoothing:antialiased;
+       background:radial-gradient(120% 90% at 50% 0%, #1c1f2b 0%, var(--bg) 60%);}
+
+  header{padding:48px 20px 0;text-align:center;}
+  .kicker{font-size:.6rem;letter-spacing:.42em;text-transform:uppercase;color:var(--comb);
+          font-weight:700;margin-bottom:13px;}
+  header h1{font-family:var(--serif);font-size:2.1rem;font-weight:600;margin:0;
+            letter-spacing:.1em;color:var(--ink);}
+  header p{margin:13px auto 0;font-size:.8rem;color:var(--ink2);max-width:32em;}
+
+  /* ---- 観点タブ＝櫛の歯（梳く方向を選ぶ） ---- */
+  nav.tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;max-width:920px;
+           margin:34px auto 0;padding:0 16px 16px;border-bottom:1px solid var(--hair);}
+  .tab{border:0;background:none;font-family:var(--sans);font-size:.8rem;color:var(--ink2);
+       padding:8px 12px 12px;cursor:pointer;position:relative;letter-spacing:.02em;
+       transition:color .2s;}
+  .tab sup{font-size:.58rem;color:var(--ink3);margin-left:3px;font-weight:400;top:-.2em;}
+  .tab:after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;
+             background:var(--comb);transform:scaleX(0);transition:transform .25s ease;}
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--comb);font-weight:700;}
+  .tab.active:after{transform:scaleX(1);}
+  /* すべてタブ：全体網の入口として少し強調 */
+  .tab-all{border-right:1px solid var(--hair);padding-right:16px;margin-right:4px;}
+
+  .stage{max-width:1040px;margin:0 auto;padding:32px 24px 90px;}
+  .frame{position:relative;width:920px;max-width:100%;aspect-ratio:760/730;margin:0 auto;
+         overflow:visible;}
+  .frame svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;}
+
+  /* ラベル：暗地でも読めるよう薄い発光ストローク */
+  .hub-label{font-family:var(--sans);font-size:12px;fill:var(--ink);font-weight:600;
+             letter-spacing:.04em;paint-order:stroke;stroke:var(--bg);stroke-width:4px;
+             stroke-linejoin:round;}
+  /* Aモードでは12個並ぶのでラベルを小さく */
+  .hub-label-sm{font-family:var(--sans);font-size:9.5px;fill:var(--ink);font-weight:600;
+             letter-spacing:.02em;paint-order:stroke;stroke:var(--bg);stroke-width:3.5px;
+             stroke-linejoin:round;}
+  .hub-sub{font-family:var(--sans);font-size:8.5px;fill:var(--comb);letter-spacing:.06em;
+           paint-order:stroke;stroke:var(--bg);stroke-width:3px;}
+  .hub-sub-sm{font-family:var(--sans);font-size:7.5px;fill:var(--comb);letter-spacing:.04em;
+           paint-order:stroke;stroke:var(--bg);stroke-width:2.5px;}
+  .divider-label{font-family:var(--sans);font-size:10px;fill:var(--ink3);letter-spacing:.24em;
+                 text-transform:uppercase;}
+
+  /* ---- 結節点＝写真（控えめ。糸を主役にするため沈める／思想2） ---- */
+  .card{position:absolute;transform:translate(-50%,-50%);text-align:center;cursor:pointer;
+        will-change:left,top;}
+  .thumb{border-radius:5px;overflow:hidden;position:relative;margin:0 auto;
+         border:1px solid rgba(255,255,255,.10);background:#0d0f16;
+         display:flex;align-items:center;justify-content:center;
+         box-shadow:0 4px 14px -8px rgba(0,0,0,.7);
+         transition:box-shadow .18s,border-color .18s,filter .18s;}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;
+             filter:saturate(.62) brightness(.86) contrast(1.02);transition:filter .18s;}
+  .card:hover .thumb,.card.sel .thumb{border-color:var(--comb);
+         box-shadow:0 0 0 1.5px var(--comb),0 8px 22px -8px rgba(199,154,78,.55);}
+  .card:hover .thumb img,.card.sel .thumb img{filter:saturate(1) brightness(1) contrast(1);}
+  .thumb .noimg{font-size:.5rem;color:var(--ink2);padding:2px;line-height:1.12;font-weight:500;}
+  /* 最も頼りない糸の結節点に淡い「?」（思想3） */
+  .qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         font-family:var(--serif);font-size:2rem;font-weight:600;color:rgba(233,226,210,.42);
+         pointer-events:none;}
+  .nm{font-size:.56rem;margin-top:4px;color:var(--ink);width:96px;margin-left:50%;
+      transform:translateX(-50%);line-height:1.16;letter-spacing:.01em;opacity:0;
+      transition:opacity .18s;pointer-events:none;position:absolute;left:0;
+      text-shadow:0 0 4px var(--bg),0 0 3px var(--bg),0 0 2px var(--bg);}
+  .card:hover .nm{opacity:1;}
+
+  .caption{text-align:center;margin:24px auto 0;max-width:36em;}
+  .caption .cat{font-family:var(--serif);font-size:1.45rem;font-weight:600;letter-spacing:.06em;
+                color:var(--ink);}
+  .caption .meta{font-size:.7rem;color:var(--ink2);margin-top:6px;letter-spacing:.04em;}
+
+  /* ---- 凡例＝糸の質感の手引き（思想3） ---- */
+  .legend{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin:20px auto 0;
+          font-size:.66rem;color:var(--ink2);}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .lq{font-family:var(--serif);font-size:1rem;color:var(--thread-soft);font-weight:600;line-height:1;}
+
+  .hint{text-align:center;margin-top:26px;font-size:.66rem;color:var(--ink3);letter-spacing:.04em;}
+
+  /* ---- 事例詳細パネル（結節点が持つ関係の一覧） ---- */
+  #detail{position:fixed;right:24px;bottom:24px;width:236px;background:var(--panel);
+          border:1px solid var(--hair);border-radius:10px;padding:15px 17px;
+          box-shadow:0 18px 46px -18px rgba(0,0,0,.7);opacity:0;transform:translateY(8px);
+          transition:.2s;pointer-events:none;z-index:80;}
+  #detail.show{opacity:1;transform:none;}
+  #detail .dk{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--comb);
+              margin-bottom:9px;}
+  #detail .dt{font-family:var(--serif);font-size:1.05rem;font-weight:600;letter-spacing:.03em;
+              margin-bottom:8px;color:var(--ink);}
+  #detail ul{list-style:none;margin:0;padding:0;}
+  #detail li{font-size:.72rem;color:var(--ink);padding:3px 0;display:flex;
+             justify-content:space-between;gap:10px;border-top:1px solid var(--hair);}
+  #detail li:first-child{border-top:0;}
+  #detail li .mk{color:var(--thread);font-weight:700;white-space:nowrap;}
+  #detail li .mk.maybe{color:var(--thread-soft);font-weight:400;}
+  #detail li .mk.q{color:var(--ink3);font-weight:400;}
+  #detail .none{font-size:.7rem;color:var(--ink3);}
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">Monumentality — 網を梳く</div>
+  <h1>関係の網を、軸でほどく</h1>
+  <p>モニュメンタリティは関係の網。観点（軸）を選ぶと、絡まった糸がその軸に沿ってほどけ、結び直っていきます。糸の質感が確信度です。</p>
+</header>
+
+<nav class="tabs" id="cats"></nav>
+
+<div class="stage">
+  <div class="frame" id="frame"><svg id="svg" viewBox="0 0 760 730" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div class="caption" id="cap"></div>
+  <div class="legend">
+    <span><svg width="28" height="10" aria-hidden="true"><line x1="2" y1="5" x2="26" y2="5" stroke="#e9e2d2" stroke-width="1.9"/></svg>確かな糸（◎）</span>
+    <span><svg width="28" height="10" aria-hidden="true"><line x1="2" y1="5" x2="26" y2="5" stroke="#9a9485" stroke-width="1.2" stroke-dasharray="4 4"/></svg>ゆるい糸（○）</span>
+    <span><svg width="28" height="10" aria-hidden="true"><line x1="2" y1="5" x2="26" y2="5" stroke="#6b6a64" stroke-width="1" stroke-dasharray="1.5 4"/></svg><i class="lq">?</i> 頼りない糸（不確か）</span>
+    <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="#c79a4e"/></svg>観点の項目（櫛の歯）</span>
+  </div>
+  <div class="hint" id="hint">「すべて」で全体の絡まりを見る → カテゴリタブを選ぶと網がほどけます ― 結節点（写真）にカーソルを置くと、その事例が持つ関係が読めます。</div>
+</div>
+
+<div id="detail"></div>
+
+<script src="data.js?v=20260616"></script>
+<script>
+/* ─────────────────────────────────────────────────────────────────────────
+   実装の核：持続的力学ループ（rAF）。
+   軸切替で網を作り直さず、アンカー（重心）だけ差し替えて
+   ノードを現在位置からそこへ泳がせる＝「ほどく」運動を連続させる。
+
+   Aモード（'all'）: 全12カテゴリのハブを同時表示。
+   各事例は自分が属する全カテゴリのハブ群の重心へ引き寄せられる
+   = もつれた全体網。カテゴリタブ選択でA→B遷移。
+   ───────────────────────────────────────────────────────────────────────── */
+const W=760, H=730;
+const CXn=380, CYn=320;
+const frame=document.getElementById('frame');
+const svg=document.getElementById('svg');
+const cap=document.getElementById('cap');
+const detail=document.getElementById('detail');
+const hint=document.getElementById('hint');
+const NS='http://www.w3.org/2000/svg';
+
+// ---- 観点をカテゴリにまとめる ----
+const cats=[]; const seen={};
+ELEMENTS.forEach(e=>{
+  if(!seen[e.category]){seen[e.category]={category:e.category,items:[]};cats.push(seen[e.category]);}
+  seen[e.category].items.push(e);
+});
+
+// ---- タブ（すべて + 各カテゴリ）----
+const catBox=document.getElementById('cats');
+
+// 「すべて」ボタン（Aモード）
+const allBtn=document.createElement('button');
+allBtn.className='tab tab-all';
+allBtn.textContent='すべて';
+allBtn.dataset.mode='all';
+allBtn.onclick=()=>switchAxis('all');
+catBox.appendChild(allBtn);
+
+// 各カテゴリタブ（Bモード）
+cats.forEach((c,idx)=>{
+  const b=document.createElement('button');b.className='tab';
+  b.innerHTML=`${c.category}<sup>${c.items.length}</sup>`;
+  b.dataset.idx=idx;b.onclick=()=>switchAxis(idx);catBox.appendChild(b);
+});
+
+function norm(v){
+  if(!v) return null;
+  const conf = v.startsWith('maybe') ? 'maybe' : 'yes';
+  const q = v.endsWith('_q');
+  return {conf,q};
+}
+
+/* ─── 永続ノード：CASES と1対1。位置(x,y)と速度(vx,vy)を持ち、
+       軸が変わっても破棄されない＝同じノードが泳いで結び直る。─── */
+const persist = CASES.map(cs=>({
+  cs,
+  x: CXn + (Math.random()-.5)*260,
+  y: CYn + (Math.random()-.5)*260,
+  vx:0, vy:0,
+  r:24,
+  ax:CXn, ay:CYn,        // 現在の軸での目標アンカー
+  mem:[],                // Bモード: この軸で属する項目 [{i,label,conf,q,hubIdx}]
+  memAll:[],             // Aモード: 全カテゴリを横断した項目 [{catIdx,itemLabel,catLabel,conf,q,hubIdx}]
+  outside:false,         // この軸でどの項目にも掛からないか
+  outAx:0, outAy:0,     // 梳き残し帯での目標位置
+  q:false,
+  el:null                // DOM カード
+}));
+
+// current: 'all' または cats のインデックス数値
+let current='all';
+let hubs=[];             // 現在表示中のハブ配置 [{x,y,label?,catIdx?}]
+let items=[];            // Bモード: 現在の軸の項目（Aモードでは空）
+let isAllMode=false;     // Aモードかどうか
+let outsideCount=0;
+
+/* ─── Aモード用: 12カテゴリハブを円形配置 ───
+   半径を大きめに取り、ラベルが重ならないよう上部から配置開始。 */
+function buildAllHubs(){
+  const n=cats.length; // 12
+  const HR=250; // 12個を収めるには大きめに
+  const hubArr=[];
+  for(let i=0;i<n;i++){
+    // 上部（-90度）から時計回りに配置
+    const a=(-90+i*360/n)*Math.PI/180;
+    hubArr.push({
+      x: CXn+HR*Math.cos(a),
+      y: CYn+HR*Math.sin(a),
+      catIdx: i,
+      label: cats[i].category
+    });
+  }
+  return hubArr;
+}
+
+/* ─── Bモード用: n個の項目ハブを既存ロジックで配置 ─── */
+function buildCatHubs(n){
+  const HR=({1:0,2:150,3:182,4:200,5:212})[n] || 222;
+  const hubArr=[];
+  if(n===1) hubArr.push({x:CXn,y:200});
+  else if(n===2) hubArr.push({x:CXn-HR,y:CYn},{x:CXn+HR,y:CYn});
+  else for(let i=0;i<n;i++){const a=(-90+i*360/n)*Math.PI/180;hubArr.push({x:CXn+HR*Math.cos(a),y:CYn+HR*Math.sin(a)});}
+  return hubArr;
+}
+
+/* 軸切替：網は作り直さない。各ノードの所属・アンカーだけ更新し、
+   位置・速度はそのまま＝今いる場所から新アンカーへ泳いでほどける。*/
+function switchAxis(idx){
+  current=idx;
+  isAllMode = (idx === 'all');
+
+  // タブの active 状態を更新
+  document.querySelectorAll('.tab').forEach(b=>{
+    if(isAllMode){
+      b.classList.toggle('active', b.dataset.mode==='all');
+    } else {
+      b.classList.toggle('active', b.dataset.mode!=='all' && +b.dataset.idx===idx);
+    }
+  });
+
+  outsideCount=0;
+
+  if(isAllMode){
+    // ─── Aモード：全カテゴリハブを円形配置 ───
+    items=[];
+    hubs=buildAllHubs();
+
+    // 各ノードの所属を全カテゴリ横断で計算 → アンカー（重心）を更新
+    persist.forEach(nd=>{
+      const memAll=[];
+      let anyQ=false;
+
+      // 全カテゴリ・全項目をスキャン
+      cats.forEach((cat,catIdx)=>{
+        cat.items.forEach(it=>{
+          const info=norm(nd.cs.scores[it.id]);
+          if(info){
+            memAll.push({
+              catIdx,
+              hubIdx: catIdx,       // hubs[] のインデックスはカテゴリインデックスと一致
+              catLabel: cat.category,
+              itemLabel: it.label,
+              conf: info.conf,
+              q: info.q
+            });
+            if(info.q) anyQ=true;
+          }
+        });
+      });
+
+      nd.memAll=memAll;
+      nd.mem=[];   // Bモード用はクリア（描画時は memAll を使う）
+      nd.q=anyQ;
+
+      // Aモードでのサイズ：掛かるカテゴリ数で変える
+      const catCount = new Set(memAll.map(m=>m.catIdx)).size;
+      nd.r = 20 + Math.min(Math.max(catCount-1,0),5)*2.0;
+
+      if(!memAll.length){
+        nd.outside=true; outsideCount++;
+        return;
+      }
+      nd.outside=false;
+
+      // アンカー = 属する全カテゴリのハブ群の重心
+      let mx=0, my=0;
+      const uniqueCatIdxs=[...new Set(memAll.map(m=>m.catIdx))];
+      uniqueCatIdxs.forEach(ci=>{ mx+=hubs[ci].x; my+=hubs[ci].y; });
+      mx/=uniqueCatIdxs.length; my/=uniqueCatIdxs.length;
+      nd.ax=mx; nd.ay=my;
+    });
+
+    cap.innerHTML=`<div class="cat">すべての観点 ― もつれた全体網</div><div class="meta">${cats.length}カテゴリ・${ELEMENTS.length}項目 ・ 全${CASES.length}事例が絡まっています${outsideCount?` ・ ${outsideCount}件は全軸で梳き残し`:''}</div>`;
+
+    hint.textContent='全体の絡まりを俯瞰しています ― カテゴリタブを選ぶと、その軸に沿って網がほどけます。';
+
+  } else {
+    // ─── Bモード：単一カテゴリ ───
+    const cat=cats[idx];
+    items=cat.items;
+    const n=items.length;
+    hubs=buildCatHubs(n);
+
+    // 各ノードの所属を再計算 → アンカー（重心）を更新
+    persist.forEach(nd=>{
+      const mem=[]; let anyQ=false;
+      items.forEach((it,i)=>{
+        const info=norm(nd.cs.scores[it.id]);
+        if(info){mem.push({i,label:it.label,conf:info.conf,q:info.q}); if(info.q)anyQ=true;}
+      });
+      nd.mem=mem; nd.memAll=[]; nd.q=anyQ;
+      nd.r = 22 + Math.min(Math.max(mem.length-1,0),4)*3.0;
+      if(!mem.length){ nd.outside=true; outsideCount++; return; }
+      nd.outside=false;
+      let mx=0,my=0; mem.forEach(m=>{mx+=hubs[m.i].x;my+=hubs[m.i].y;});
+      mx/=mem.length; my/=mem.length;
+      if(mem.length===1){ mx+=(CXn-mx)*0.22; my+=(CYn-my)*0.22; }
+      nd.ax=mx; nd.ay=my;
+    });
+
+    cap.innerHTML=`<div class="cat">${cat.category}</div><div class="meta">${n}つの軸 ・ 糸で結ばれた事例がその項目を持つ${outsideCount?` ・ ${outsideCount}件はこの軸で梳き残し`:''}</div>`;
+
+    hint.textContent='タブを切り替えると、網が新しい軸に沿って泳いでほどけます ― 結節点（写真）にカーソルを置くと、その事例が持つ関係が読めます。';
+  }
+
+  // 梳き残し帯：下部に並べる目標位置を割り当て
+  const outs=persist.filter(nd=>nd.outside);
+  if(outs.length){
+    const sp=56, rowH=58, bottomY=684;
+    const per=Math.max(1,Math.min(outs.length, Math.floor((W-44)/sp)));
+    outs.forEach((nd,k)=>{
+      const row=Math.floor(k/per);
+      const inRow=Math.min(per, outs.length-row*per);
+      const col=k%per;
+      const rows=Math.ceil(outs.length/per);
+      const baseY=bottomY-(rows-1)*rowH;
+      nd.outAx=CXn+(col-(inRow-1)/2)*sp; nd.outAy=baseY+row*rowH;
+    });
+  }
+
+  // カードが未生成なら作る（一度だけ。以後は使い回し＝破棄しない）
+  persist.forEach(nd=>{ if(!nd.el) makeCard(nd); });
+
+  // 詳細パネルの表示を更新（開いていれば）
+  if(detail.classList.contains('show') && hoverNode) showDetail(hoverNode);
+
+  // 即時に一度描画（rAFが絞られても静止状態は常に正しく見える保険）
+  render();
+
+  const u=new URL(location);
+  u.searchParams.set('cat', isAllMode ? 'all' : idx);
+  history.replaceState(null,'',u);
+}
+
+function makeCard(nd){
+  const cs=nd.cs;
+  const d=document.createElement('div');d.className='card';
+  const inner = cs.img ? `<img src="${cs.img}" alt="${cs.name}" loading="lazy">`
+                       : `<span class="noimg">${cs.name}</span>`;
+  d.innerHTML=`<div class="thumb">${inner}<span class="qmark" style="display:none">?</span></div><div class="nm">${cs.name}</div>`;
+  d.onmouseenter=()=>{hoverNode=nd; nd.el.classList.add('sel'); showDetail(nd);};
+  d.onmouseleave=()=>{hoverNode=null; nd.el.classList.remove('sel'); detail.classList.remove('show');};
+  nd.el=d; nd.thumb=d.querySelector('.thumb'); nd.qm=d.querySelector('.qmark'); nd.nmEl=d.querySelector('.nm');
+  frame.appendChild(d);
+}
+
+let hoverNode=null;
+
+/* ─── 物理1ステップ（反発＋アンカーへのバネ＋減衰＋枠クランプ）───
+   この1回ぶんが「ほどき」の一瞬。描画はしない。*/
+function step(){
+  const topPad=70, botPad=(outsideCount?150:48);
+  for(let a=0;a<persist.length;a++){
+    for(let b=a+1;b<persist.length;b++){
+      const A=persist[a],B=persist[b];
+      const minD=A.r+B.r+13;
+      let dx=B.x-A.x, dy=B.y-A.y, d=Math.hypot(dx,dy);
+      if(d===0){dx=Math.random()-.5;dy=Math.random()-.5;d=Math.hypot(dx,dy)||1;}
+      if(d<minD){const p=(minD-d)/d*0.5*0.6; A.x-=dx*p;A.y-=dy*p;B.x+=dx*p;B.y+=dy*p;}
+    }
+  }
+  persist.forEach(nd=>{
+    const tx = nd.outside ? nd.outAx : nd.ax;
+    const ty = nd.outside ? nd.outAy : nd.ay;
+    const k=0.020;
+    nd.vx=(nd.vx+(tx-nd.x)*k)*0.86;
+    nd.vy=(nd.vy+(ty-nd.y)*k)*0.86;
+    nd.x+=nd.vx; nd.y+=nd.vy;
+    nd.x=Math.max(nd.r+6,Math.min(W-nd.r-6,nd.x));
+    // 梳き残しは帯まで降りられるよう下限を緩める／網内はハブ域に留める
+    const lowY = nd.outside ? H-44 : H-botPad;
+    nd.y=Math.max(topPad,Math.min(lowY,nd.y));
+  });
+}
+
+/* ─── 持続的力学ループ ───
+   毎フレーム step()→render() を回し続ける。これが「ほどく」運動の継続。
+   軸切替後はアンカーが変わるので、止まっていた網が再び泳いで梳き直る。*/
+function tick(){ step(); render(); rafId=requestAnimationFrame(tick); }
+let rafId=null;
+
+/* rAF が走らない環境でも静止状態は正しく見えるよう、
+   即時に複数ステップ回して描画する保険。*/
+function settle(steps){ for(let i=0;i<steps;i++) step(); render(); }
+
+/* 毎フレーム描画：糸（主役）→ハブ→ラベル→梳き残し見出し。
+   カード(DOM)は位置だけ更新。*/
+function render(){
+  let s='';
+
+  if(isAllMode){
+    // ─── Aモード描画 ───
+
+    // 糸：全カテゴリのハブへの関係を描く（各事例→各カテゴリのハブ）
+    // 同一カテゴリへの糸は1本にまとめる（最高確信度で代表）
+    persist.forEach(nd=>{
+      if(nd.outside) return;
+      // カテゴリごとにまとめる
+      const catMap={};
+      nd.memAll.forEach(m=>{
+        const ci=m.catIdx;
+        if(!catMap[ci]){catMap[ci]={catIdx:ci,conf:m.conf,q:m.q};}
+        else {
+          // より確信度が高い方で上書き
+          const prev=catMap[ci];
+          if(prev.q && !m.q) prev.q=false;
+          if(prev.conf==='maybe' && m.conf==='yes') prev.conf='yes';
+        }
+      });
+
+      Object.values(catMap).forEach(cm=>{
+        const h=hubs[cm.catIdx];
+        const mx=(nd.x+h.x)/2, my=(nd.y+h.y)/2;
+        const dx=h.x-nd.x, dy=h.y-nd.y, len=Math.hypot(dx,dy)||1;
+        const cx=mx - dy/len*len*0.10, cy=my + dx/len*len*0.10;
+        let col,wd,op,dash;
+        if(cm.q){ col='#6b6a64'; wd=0.8; op=0.30; dash='1.5 4.5'; }
+        else if(cm.conf==='maybe'){ col='#9a9485'; wd=0.9; op=0.40; dash='4 4'; }
+        else { col='#e9e2d2'; wd=1.3; op=0.50; dash=''; }
+        s+=`<path d="M ${nd.x.toFixed(1)} ${nd.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${h.x.toFixed(1)} ${h.y.toFixed(1)}" fill="none" stroke="${col}" stroke-width="${wd}" opacity="${op}"${dash?` stroke-dasharray="${dash}"`:''} stroke-linecap="round"/>`;
+      });
+    });
+
+    // ハブ（12カテゴリ）を描画
+    hubs.forEach((h,i)=>{
+      s+=`<circle cx="${h.x.toFixed(1)}" cy="${h.y.toFixed(1)}" r="5.5" fill="#c79a4e" stroke="#15171f" stroke-width="2"/>`;
+      // ラベル位置：ハブから中心への方向の反対（外側）へ
+      const ang=Math.atan2(h.y-CYn, h.x-CXn);
+      let lx=h.x+Math.cos(ang)*16, ly=h.y+Math.sin(ang)*16;
+      // y調整：上なら上へ、下なら下へ
+      ly = h.y<CYn ? ly-5 : ly+13;
+      ly=Math.max(14,Math.min(H-6,ly)); lx=Math.max(52,Math.min(W-52,lx));
+      const anchor = lx<CXn-20?'end':lx>CXn+20?'start':'middle';
+      const cnt = persist.filter(nd=>!nd.outside && nd.memAll.some(m=>m.catIdx===i)).length;
+      s+=`<text class="hub-label-sm" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}">${esc(cats[i].category)}</text>`;
+      s+=`<text class="hub-sub-sm" x="${lx.toFixed(1)}" y="${(ly+10).toFixed(1)}" text-anchor="${anchor}">${cnt}例</text>`;
+    });
+
+  } else {
+    // ─── Bモード描画（既存ロジックそのまま）───
+
+    // 糸（リンク）＝主役。確信度で張りを変える（思想3）
+    persist.forEach(nd=>{
+      if(nd.outside) return;
+      nd.mem.forEach(m=>{
+        const h=hubs[m.i];
+        const mx=(nd.x+h.x)/2, my=(nd.y+h.y)/2;
+        const dx=h.x-nd.x, dy=h.y-nd.y, len=Math.hypot(dx,dy)||1;
+        const cx=mx - dy/len*len*0.10, cy=my + dx/len*len*0.10;
+        let col,wd,op,dash;
+        if(m.q){ col='#6b6a64'; wd=1; op=0.42; dash='1.5 4.5'; }
+        else if(m.conf==='maybe'){ col='#9a9485'; wd=1.2; op=0.55; dash='4 4'; }
+        else { col='#e9e2d2'; wd=1.9; op=0.72; dash=''; }
+        s+=`<path d="M ${nd.x.toFixed(1)} ${nd.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${h.x.toFixed(1)} ${h.y.toFixed(1)}" fill="none" stroke="${col}" stroke-width="${wd}" opacity="${op}"${dash?` stroke-dasharray="${dash}"`:''} stroke-linecap="round"/>`;
+      });
+    });
+
+    // ハブ（櫛の歯）＝真鍮の点
+    const n=items.length;
+    hubs.forEach((h,i)=>{
+      s+=`<circle cx="${h.x.toFixed(1)}" cy="${h.y.toFixed(1)}" r="6.5" fill="#c79a4e" stroke="#15171f" stroke-width="2.5"/>`;
+      const ang = n===1 ? -Math.PI/2 : Math.atan2(h.y-CYn,h.x-CXn);
+      let lx=h.x+Math.cos(ang)*17, ly=h.y+Math.sin(ang)*17;
+      ly = ly<CYn ? ly-6 : ly+16;
+      ly=Math.max(18,Math.min(H-8,ly)); lx=Math.max(70,Math.min(W-70,lx));
+      const anchor = lx<CXn-30?'end':lx>CXn+30?'start':'middle';
+      const cnt = persist.filter(nd=>!nd.outside && nd.mem.some(m=>m.i===i)).length;
+      s+=`<text class="hub-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}">${esc(items[i].label)}</text>`;
+      s+=`<text class="hub-sub" x="${lx.toFixed(1)}" y="${(ly+12).toFixed(1)}" text-anchor="${anchor}">${cnt} 事例</text>`;
+    });
+  }
+
+  // ── 梳き残し帯の見出し（A/B共通）──
+  if(outsideCount){
+    const outs=persist.filter(nd=>nd.outside);
+    let minY=Infinity; outs.forEach(nd=>{ if(nd.outAy<minY) minY=nd.outAy; });
+    const label = isAllMode ? 'この全体網で梳き残し（全項目に掛からない）' : 'この軸で梳き残し（どの項目にも掛からない）';
+    s+=`<text class="divider-label" x="${CXn}" y="${(minY-40).toFixed(1)}" text-anchor="middle">${label}</text>`;
+  }
+
+  svg.innerHTML=s;
+
+  // ── カード位置（DOMは破棄せず移動だけ）──
+  persist.forEach(nd=>{
+    if(!nd.el) return;
+    nd.el.style.left=(nd.x/W*100)+'%';
+    nd.el.style.top=(nd.y/H*100)+'%';
+    const sz=Math.round(nd.r*2);
+    if(nd.thumb.style.width!==sz+'px'){ nd.thumb.style.width=sz+'px'; nd.thumb.style.height=sz+'px'; nd.nmEl.style.top=sz+'px'; }
+    nd.qm.style.display = nd.q && !nd.outside ? 'flex' : 'none';
+  });
+}
+
+function esc(t){return String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function showDetail(nd){
+  const cs=nd.cs;
+  let body;
+  let titleLabel;
+
+  if(isAllMode){
+    // Aモード：全カテゴリにまたがる関係を表示
+    titleLabel='全体網';
+    if(nd.outside || !nd.memAll.length){
+      body=`<div class="none">全ての軸でどの項目にも掛かりません。</div>`;
+    } else {
+      // カテゴリごとにグループ表示
+      const catMap={};
+      nd.memAll.forEach(m=>{
+        if(!catMap[m.catIdx]) catMap[m.catIdx]={label:m.catLabel,items:[]};
+        catMap[m.catIdx].items.push(m);
+      });
+      body='<ul>'+Object.values(catMap).map(cg=>{
+        const rows=cg.items.map(m=>{
+          const cls = m.q?'q':(m.conf==='maybe'?'maybe':'');
+          const lab = m.q?'?':(m.conf==='maybe'?'○':'◎');
+          return `<li><span style="color:var(--ink3);font-size:.64rem">${esc(cg.label)} / ${esc(m.itemLabel)}</span><span class="mk ${cls}">${lab}</span></li>`;
+        }).join('');
+        return rows;
+      }).join('')+'</ul>';
+    }
+  } else {
+    // Bモード：現在のカテゴリの関係を表示（既存ロジック）
+    titleLabel=cats[current].category;
+    if(nd.outside || !nd.mem.length){
+      body=`<div class="none">この軸では、どの項目にも掛かりません。</div>`;
+    } else {
+      body='<ul>'+nd.mem.map(m=>{
+        const cls = m.q?'q':(m.conf==='maybe'?'maybe':'');
+        const lab = m.q?'? 不確か':(m.conf==='maybe'?'○ おそらく':'◎ 確か');
+        return `<li><span>${esc(m.label)}</span><span class="mk ${cls}">${lab}</span></li>`;
+      }).join('')+'</ul>';
+    }
+  }
+
+  detail.innerHTML=`<div class="dk">${esc(titleLabel)}</div><div class="dt">${esc(cs.name)}</div>${body}`;
+  detail.classList.add('show');
+}
+
+// 起動: URLパラメータを確認してモード決定
+const startParam=new URL(location).searchParams.get('cat');
+let startMode;
+if(startParam === 'all' || startParam === null){
+  startMode='all';
+} else if(cats[+startParam]){
+  startMode=+startParam;
+} else {
+  startMode='all';
+}
+switchAxis(startMode);
+// 初期は乱れた網。少し回して読める静止状態を保証（rAF非対応環境の保険）。
+settle(180);
+// 見えていれば rAF が以後の運動（軸切替時のほどき）を滑らかに継続。
+rafId=requestAnimationFrame(tick);
+</script>
+</body>
+</html>
