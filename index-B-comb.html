@@ -71,46 +71,50 @@
 <style>
   :root{
     /* 沈んだ墨紺の地 ―― 暗い作業灯の下で糸を見るための背景（思想4） */
-    --bg:#15171f; --bg2:#1b1e28; --panel:#1e2230;
+    /* color-bg / color-bg-secondary / color-panel : design.md semantic tokens */
+    --color-bg:#15171f; --color-bg-secondary:#1b1e28; --color-panel:#1e2230;
     /* 糸＝生成り〜骨色。暗地で関係線が最前面に立つ */
+    /* thread / thread-soft : このツール固有の糸描画色（design.md に対応なし） */
     --thread:#e9e2d2; --thread-soft:#9a9485;
-    --ink:#ece8df; --ink2:#9c9a93; --ink3:#6b6a64;
-    /* 真鍮の櫛＝梳く方向（軸）を示す唯一の機能色 */
+    /* color-text / color-text-secondary / color-text-tertiary : design.md semantic tokens */
+    --color-text:#ece8df; --color-text-secondary:#9c9a93; --color-text-tertiary:#6b6a64;
+    /* 真鍮の櫛＝梳く方向（軸）を示す唯一の機能色（このツール固有、design.md color-accent とは別物） */
     --comb:#c79a4e; --comb-soft:#7a6234;
-    --hair:#2a2e3b; --hair2:#23222a;
+    /* color-border : design.md semantic token / hair2 : ツール固有 */
+    --color-border:#2a2e3b; --hair2:#23222a;
     --serif:"Zen Old Mincho",serif;
     --sans:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;background:var(--bg);}
-  body{font-family:var(--sans);color:var(--ink);line-height:1.6;
+  html,body{margin:0;background:var(--color-bg);}
+  body{font-family:var(--sans);color:var(--color-text);line-height:1.6;
        -webkit-font-smoothing:antialiased;
-       background:radial-gradient(120% 90% at 50% 0%, #1c1f2b 0%, var(--bg) 60%);}
+       background:radial-gradient(120% 90% at 50% 0%, #1c1f2b 0%, var(--color-bg) 60%);}
 
   header{padding:48px 20px 0;text-align:center;}
   .kicker{font-size:.6rem;letter-spacing:.42em;text-transform:uppercase;color:var(--comb);
           font-weight:700;margin-bottom:13px;}
   header h1{font-family:var(--serif);font-size:2.1rem;font-weight:600;margin:0;
-            letter-spacing:.1em;color:var(--ink);}
-  header p{margin:13px auto 0;font-size:.8rem;color:var(--ink2);max-width:32em;}
+            letter-spacing:.1em;color:var(--color-text);}
+  header p{margin:13px auto 0;font-size:.8rem;color:var(--color-text-secondary);max-width:32em;}
 
   /* ---- 観点タブ＝櫛の歯（梳く方向を選ぶ） ---- */
   nav.tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;max-width:920px;
-           margin:34px auto 0;padding:0 16px 16px;border-bottom:1px solid var(--hair);}
-  .tab{border:0;background:none;font-family:var(--sans);font-size:.8rem;color:var(--ink2);
+           margin:34px auto 0;padding:0 16px 16px;border-bottom:1px solid var(--color-border);}
+  .tab{border:0;background:none;font-family:var(--sans);font-size:.8rem;color:var(--color-text-secondary);
        padding:8px 12px 12px;cursor:pointer;position:relative;letter-spacing:.02em;
        transition:color .2s;}
-  .tab sup{font-size:.58rem;color:var(--ink3);margin-left:3px;font-weight:400;top:-.2em;}
+  .tab sup{font-size:.58rem;color:var(--color-text-tertiary);margin-left:3px;font-weight:400;top:-.2em;}
   .tab:after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;
              background:var(--comb);transform:scaleX(0);transition:transform .25s ease;}
-  .tab:hover{color:var(--ink);}
+  .tab:hover{color:var(--color-text);}
   .tab.active{color:var(--comb);font-weight:700;}
   .tab.active:after{transform:scaleX(1);}
   /* すべてタブ：全体網の入口として少し強調
      border-right:1px  → design.md border-base (1px)
      padding-right:16px → design.md space-4 (16px)
      margin-right:4px   → design.md space-1 (4px) */
-  .tab-all{border-right:1px solid var(--hair);padding-right:16px;margin-right:4px;}
+  .tab-all{border-right:1px solid var(--color-border);padding-right:16px;margin-right:4px;}
 
   .stage{max-width:1040px;margin:0 auto;padding:32px 24px 90px;}
   .frame{position:relative;width:920px;max-width:100%;aspect-ratio:760/730;margin:0 auto;
@@ -118,18 +122,18 @@
   .frame svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;}
 
   /* ラベル：暗地でも読めるよう薄い発光ストローク */
-  .hub-label{font-family:var(--sans);font-size:12px;fill:var(--ink);font-weight:600;
-             letter-spacing:.04em;paint-order:stroke;stroke:var(--bg);stroke-width:4px;
+  .hub-label{font-family:var(--sans);font-size:12px;fill:var(--color-text);font-weight:600;
+             letter-spacing:.04em;paint-order:stroke;stroke:var(--color-bg);stroke-width:4px;
              stroke-linejoin:round;}
   /* Aモードでは12個並ぶのでラベルを小さく */
-  .hub-label-sm{font-family:var(--sans);font-size:9.5px;fill:var(--ink);font-weight:600;
-             letter-spacing:.02em;paint-order:stroke;stroke:var(--bg);stroke-width:3.5px;
+  .hub-label-sm{font-family:var(--sans);font-size:9.5px;fill:var(--color-text);font-weight:600;
+             letter-spacing:.02em;paint-order:stroke;stroke:var(--color-bg);stroke-width:3.5px;
              stroke-linejoin:round;}
   .hub-sub{font-family:var(--sans);font-size:8.5px;fill:var(--comb);letter-spacing:.06em;
-           paint-order:stroke;stroke:var(--bg);stroke-width:3px;}
+           paint-order:stroke;stroke:var(--color-bg);stroke-width:3px;}
   .hub-sub-sm{font-family:var(--sans);font-size:7.5px;fill:var(--comb);letter-spacing:.04em;
-           paint-order:stroke;stroke:var(--bg);stroke-width:2.5px;}
-  .divider-label{font-family:var(--sans);font-size:10px;fill:var(--ink3);letter-spacing:.24em;
+           paint-order:stroke;stroke:var(--color-bg);stroke-width:2.5px;}
+  .divider-label{font-family:var(--sans);font-size:10px;fill:var(--color-text-tertiary);letter-spacing:.24em;
                  text-transform:uppercase;}
 
   /* ---- 結節点＝写真（控えめ。糸を主役にするため沈める／思想2） ---- */
@@ -145,48 +149,48 @@
   .card:hover .thumb,.card.sel .thumb{border-color:var(--comb);
          box-shadow:0 0 0 1.5px var(--comb),0 8px 22px -8px rgba(199,154,78,.55);}
   .card:hover .thumb img,.card.sel .thumb img{filter:saturate(1) brightness(1) contrast(1);}
-  .thumb .noimg{font-size:.5rem;color:var(--ink2);padding:2px;line-height:1.12;font-weight:500;}
+  .thumb .noimg{font-size:.5rem;color:var(--color-text-secondary);padding:2px;line-height:1.12;font-weight:500;}
   /* 最も頼りない糸の結節点に淡い「?」（思想3） */
   .qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
          font-family:var(--serif);font-size:2rem;font-weight:600;color:rgba(233,226,210,.42);
          pointer-events:none;}
-  .nm{font-size:.56rem;margin-top:4px;color:var(--ink);width:96px;margin-left:50%;
+  .nm{font-size:.56rem;margin-top:4px;color:var(--color-text);width:96px;margin-left:50%;
       transform:translateX(-50%);line-height:1.16;letter-spacing:.01em;opacity:0;
       transition:opacity .18s;pointer-events:none;position:absolute;left:0;
-      text-shadow:0 0 4px var(--bg),0 0 3px var(--bg),0 0 2px var(--bg);}
+      text-shadow:0 0 4px var(--color-bg),0 0 3px var(--color-bg),0 0 2px var(--color-bg);}
   .card:hover .nm{opacity:1;}
 
   .caption{text-align:center;margin:24px auto 0;max-width:36em;}
   .caption .cat{font-family:var(--serif);font-size:1.45rem;font-weight:600;letter-spacing:.06em;
-                color:var(--ink);}
-  .caption .meta{font-size:.7rem;color:var(--ink2);margin-top:6px;letter-spacing:.04em;}
+                color:var(--color-text);}
+  .caption .meta{font-size:.7rem;color:var(--color-text-secondary);margin-top:6px;letter-spacing:.04em;}
 
   /* ---- 凡例＝糸の質感の手引き（思想3） ---- */
   .legend{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin:20px auto 0;
-          font-size:.66rem;color:var(--ink2);}
+          font-size:.66rem;color:var(--color-text-secondary);}
   .legend span{display:inline-flex;align-items:center;gap:7px;}
   .lq{font-family:var(--serif);font-size:1rem;color:var(--thread-soft);font-weight:600;line-height:1;}
 
-  .hint{text-align:center;margin-top:26px;font-size:.66rem;color:var(--ink3);letter-spacing:.04em;}
+  .hint{text-align:center;margin-top:26px;font-size:.66rem;color:var(--color-text-tertiary);letter-spacing:.04em;}
 
   /* ---- 事例詳細パネル（結節点が持つ関係の一覧） ---- */
-  #detail{position:fixed;right:24px;bottom:24px;width:236px;background:var(--panel);
-          border:1px solid var(--hair);border-radius:10px;padding:15px 17px;
+  #detail{position:fixed;right:24px;bottom:24px;width:236px;background:var(--color-panel);
+          border:1px solid var(--color-border);border-radius:10px;padding:15px 17px;
           box-shadow:0 18px 46px -18px rgba(0,0,0,.7);opacity:0;transform:translateY(8px);
           transition:.2s;pointer-events:none;z-index:80;}
   #detail.show{opacity:1;transform:none;}
   #detail .dk{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--comb);
               margin-bottom:9px;}
   #detail .dt{font-family:var(--serif);font-size:1.05rem;font-weight:600;letter-spacing:.03em;
-              margin-bottom:8px;color:var(--ink);}
+              margin-bottom:8px;color:var(--color-text);}
   #detail ul{list-style:none;margin:0;padding:0;}
-  #detail li{font-size:.72rem;color:var(--ink);padding:3px 0;display:flex;
-             justify-content:space-between;gap:10px;border-top:1px solid var(--hair);}
+  #detail li{font-size:.72rem;color:var(--color-text);padding:3px 0;display:flex;
+             justify-content:space-between;gap:10px;border-top:1px solid var(--color-border);}
   #detail li:first-child{border-top:0;}
   #detail li .mk{color:var(--thread);font-weight:700;white-space:nowrap;}
   #detail li .mk.maybe{color:var(--thread-soft);font-weight:400;}
-  #detail li .mk.q{color:var(--ink3);font-weight:400;}
-  #detail .none{font-size:.7rem;color:var(--ink3);}
+  #detail li .mk.q{color:var(--color-text-tertiary);font-weight:400;}
+  #detail .none{font-size:.7rem;color:var(--color-text-tertiary);}
 </style>
 </head>
 <body>
@@ -628,7 +632,7 @@ function showDetail(nd){
         const rows=cg.items.map(m=>{
           const cls = m.q?'q':(m.conf==='maybe'?'maybe':'');
           const lab = m.q?'?':(m.conf==='maybe'?'○':'◎');
-          return `<li><span style="color:var(--ink3);font-size:.64rem">${esc(cg.label)} / ${esc(m.itemLabel)}</span><span class="mk ${cls}">${lab}</span></li>`;
+          return `<li><span style="color:var(--color-text-tertiary);font-size:.64rem">${esc(cg.label)} / ${esc(m.itemLabel)}</span><span class="mk ${cls}">${lab}</span></li>`;
         }).join('');
         return rows;
       }).join('')+'</ul>';
